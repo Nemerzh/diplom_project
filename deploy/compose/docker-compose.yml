@@ -1,0 +1,93 @@
+name: energy-metering-platform
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: energy
+      POSTGRES_USER: energy
+      POSTGRES_PASSWORD: energy
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U energy -d energy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../../services/backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://energy:energy@postgres:5432/energy
+      CORS_ORIGINS: http://localhost,http://localhost:8081,http://127.0.0.1:8081,http://localhost:5173,http://frontend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend-migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+
+  backend-migrate:
+    build:
+      context: ../../services/backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://energy:energy@postgres:5432/energy
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: [ "alembic", "upgrade", "head" ]
+    restart: "no"
+
+  frontend:
+    build:
+      context: ../../services/frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - backend
+    ports:
+      - "8081:80"
+
+  simulator:
+    build:
+      context: ../../services/simulator
+    environment:
+      API_URL: http://backend:8000
+      INTERVAL_SECONDS: "2"
+      SIM_PROFILE: normal
+      SIM_MULTIPLIER: "1"
+    depends_on:
+      - backend
+    ports:
+      - "8010:8010"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ../../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+      - simulator
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ../../monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ../../monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  grafana_data:

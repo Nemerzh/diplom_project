@@ -1,0 +1,48 @@
+{
+  "id": null,
+  "title": "Energy Platform Overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP RPS",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [{ "expr": "sum(rate(http_requests_total[1m]))", "legendFormat": "rps" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "P95 Latency",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }]
+    },
+    {
+      "type": "stat",
+      "title": "Received Readings",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 8 },
+      "targets": [{ "expr": "received_readings_total" }]
+    },
+    {
+      "type": "stat",
+      "title": "Validated Readings",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 8 },
+      "targets": [{ "expr": "validated_readings_total" }]
+    },
+    {
+      "type": "stat",
+      "title": "Alerts Generated",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 8 },
+      "targets": [{ "expr": "alerts_generated_total" }]
+    },
+    {
+      "type": "stat",
+      "title": "Report Requests",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 8 },
+      "targets": [{ "expr": "sum(report_requests_total)" }]
+    }
+  ],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "browser",
+  "refresh": "10s"
+}

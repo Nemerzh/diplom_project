@@ -1,0 +1,104 @@
+version: "3.9"
+
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --providers.swarm=true
+      - --providers.swarm.exposedbydefault=false
+      - --entrypoints.web.address=:80
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+    networks: [public, internal]
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: energy
+      POSTGRES_USER: energy
+      POSTGRES_PASSWORD: energy
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+    networks: [internal]
+
+  backend:
+    image: energy-backend:latest
+    environment:
+      DATABASE_URL: postgresql+psycopg2://energy:energy@postgres:5432/energy
+      CORS_ORIGINS: http://localhost
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.api.rule=Host(`localhost`) && PathPrefix(`/`)
+        - traefik.http.services.api.loadbalancer.server.port=8000
+    networks: [public, internal]
+
+  frontend:
+    image: energy-frontend:latest
+    deploy:
+      replicas: 2
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.front.rule=Host(`localhost`) && PathPrefix(`/ui`)
+        - traefik.http.middlewares.front-strip.stripprefix.prefixes=/ui
+        - traefik.http.routers.front.middlewares=front-strip
+        - traefik.http.services.front.loadbalancer.server.port=80
+    networks: [public]
+
+  simulator:
+    image: energy-simulator:latest
+    environment:
+      API_URL: http://backend:8000
+      METER_IDS: "1,2,3"
+      INTERVAL_SECONDS: "1"
+      SIM_PROFILE: normal
+      SIM_MULTIPLIER: "1"
+    deploy:
+      replicas: 1
+    networks: [internal]
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    configs:
+      - source: prom_cfg
+        target: /etc/prometheus/prometheus.yml
+    networks: [internal]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+    networks: [internal]
+
+networks:
+  public:
+    driver: overlay
+  internal:
+    driver: overlay
+
+volumes:
+  postgres_data:
+  grafana_data:
+
+configs:
+  prom_cfg:
+    file: ../../monitoring/prometheus/prometheus.yml

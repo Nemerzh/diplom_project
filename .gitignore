@@ -1,0 +1,80 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.swp
+*.swo
+.idea/
+.vscode/
+.cursor/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+cover/
+*.egg-info/
+.eggs/
+*.egg
+pip-log.txt
+pip-wheel-metadata/
+.venv/
+venv/
+env/
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# Docker / compose runtime
+*.pid
+*.seed
+docker-data/
+docker-compose.override.yml
+
+# Local DB / dumps
+*.sqlite3
+*.sql.gz
+*.dump
+
+# Logs / temp
+*.log
+logs/
+tmp/
+temp/
+
+# Experiment artifacts
+metrics_snapshot.json
+load_test_results.csv
+results/
+
+# Terraform / IaC (future-proof)
+.terraform/
+*.tfstate
+*.tfstate.*
