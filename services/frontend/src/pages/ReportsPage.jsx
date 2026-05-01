@@ -1,405 +1,319 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  compareSites,
-  getDailyReports,
+  downloadLineReportCsv,
   getEnterprises,
-  getHierarchyReport,
-  getMonthlyReports,
-  getReportsSummary,
+  getLineLoadReport,
+  getMeters,
+  getSiteCompareOnLine,
   getSites,
+  getSubstations,
+  getTransformers,
+  getLines,
   rebuildReports
 } from "../api";
-import { DataTable, FieldLabel, Toasts, styles } from "../ui.jsx";
+import AlertsSummaryCard from "../reports/AlertsSummaryCard.jsx";
+import HierarchicalDetailsTable from "../reports/HierarchicalDetailsTable.jsx";
+import LineConsumptionChart from "../reports/LineConsumptionChart.jsx";
+import ReportFilters from "../reports/ReportFilters.jsx";
+import ReportKpis from "../reports/ReportKpis.jsx";
+import SiteComparisonPanel from "../reports/SiteComparisonPanel.jsx";
+import SiteDistributionChart from "../reports/SiteDistributionChart.jsx";
+import TopListsCards from "../reports/TopListsCards.jsx";
+import { Toasts, styles } from "../ui.jsx";
 
-function nodeKey(node) {
-  return `${node.node_type}:${node.id}`;
-}
-
-function severityOf(node) {
-  const deltaPct = Number(node?.delta_pct);
-  if (Number.isNaN(deltaPct)) return "ok";
-  if (deltaPct >= 25) return "critical";
-  if (deltaPct >= 10) return "warning";
-  return "ok";
-}
-
-function severityStyle(level) {
-  if (level === "critical") return { color: "#b91c1c", fontWeight: 700 };
-  if (level === "warning") return { color: "#b45309", fontWeight: 700 };
-  return { color: "#166534", fontWeight: 600 };
+function defaultDateRange() {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - 30);
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
 }
 
 export default function ReportsPage() {
+  const { from: defFrom, to: defTo } = defaultDateRange();
   const [enterprises, setEnterprises] = useState([]);
   const [enterpriseId, setEnterpriseId] = useState("");
-  const [daily, setDaily] = useState([]);
-  const [monthly, setMonthly] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [hierarchy, setHierarchy] = useState(null);
+  const [substations, setSubstations] = useState([]);
+  const [substationId, setSubstationId] = useState("");
+  const [transformers, setTransformers] = useState([]);
+  const [transformerId, setTransformerId] = useState("");
+  const [lines, setLines] = useState([]);
+  const [lineId, setLineId] = useState("");
+  const [siteFilterId, setSiteFilterId] = useState("");
+  const [granularity, setGranularity] = useState("daily");
+  const [dateFrom, setDateFrom] = useState(defFrom);
+  const [dateTo, setDateTo] = useState(defTo);
+  const [meters, setMeters] = useState([]);
   const [sites, setSites] = useState([]);
-  const [cmp, setCmp] = useState(null);
-  const [siteA, setSiteA] = useState("");
-  const [siteB, setSiteB] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [summaryDays, setSummaryDays] = useState("30");
-  const [hierarchyPath, setHierarchyPath] = useState([]);
+  const [lineData, setLineData] = useState(null);
+  const [compare, setCompare] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
-  const siteNameById = Object.fromEntries(sites.map((s) => [s.id, s.name]));
 
   const pushToast = (text, type = "success") => {
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, text, type }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2500);
-  };
-
-  const load = async () => {
-    if (!enterpriseId) return;
-    const params = {
-      fromDate: fromDate ? new Date(`${fromDate}T00:00:00Z`).toISOString() : undefined,
-      toDate: toDate ? new Date(`${toDate}T23:59:59Z`).toISOString() : undefined,
-      enterpriseId
-    };
-    const [d, m, s, sum, h] = await Promise.all([
-      getDailyReports(params),
-      getMonthlyReports(params),
-      getSites(),
-      getReportsSummary(Number(summaryDays) || 30, enterpriseId),
-      getHierarchyReport(params)
-    ]);
-    setDaily(d);
-    setMonthly(m);
-    setSites(s);
-    setSummary(sum);
-    setHierarchy(h);
-    setHierarchyPath([]);
-    const entSites = s.filter((st) => String(st.enterprise_id) === String(enterpriseId));
-    if (entSites.length > 0) {
-      setSiteA(String(entSites[0].id));
-      setSiteB(String(entSites.length > 1 ? entSites[1].id : entSites[0].id));
-    }
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2800);
   };
 
   useEffect(() => {
     (async () => {
       try {
-        const list = await getEnterprises();
-        setEnterprises(list);
-        if (list.length > 0) {
-          setEnterpriseId((prev) => prev || String(list[0].id));
-        }
+        const [entList, siteList, meterList] = await Promise.all([getEnterprises(), getSites(), getMeters()]);
+        setEnterprises(entList);
+        setSites(siteList);
+        setMeters(meterList);
+        if (entList.length) setEnterpriseId(String(entList[0].id));
       } catch {
-        setEnterprises([]);
+        pushToast("Не вдалося завантажити довідники", "error");
       }
     })();
   }, []);
 
   useEffect(() => {
     if (!enterpriseId) return;
-    load();
-  }, [enterpriseId, fromDate, toDate, summaryDays]);
+    (async () => {
+      try {
+        const subs = await getSubstations(Number(enterpriseId));
+        setSubstations(subs);
+        setSubstationId("");
+        setTransformerId("");
+        setLineId("");
+        setLines([]);
+        setTransformers([]);
+      } catch {
+        setSubstations([]);
+      }
+    })();
+  }, [enterpriseId]);
 
-  const fmt = (value) => Number(value || 0).toFixed(2);
-  const fmtPct = (value) => (value == null ? "n/a" : `${Number(value).toFixed(1)}%`);
-  const hierarchyRoots = hierarchy?.tree || [];
-  const sitesForEnterprise = sites.filter((st) => String(st.enterprise_id) === String(enterpriseId));
-  const breadcrumbs = [];
-  let currentNodes = hierarchyRoots;
-  for (const pathKey of hierarchyPath) {
-    const matched = currentNodes.find((node) => nodeKey(node) === pathKey);
-    if (!matched) break;
-    breadcrumbs.push(matched);
-    currentNodes = matched.children || [];
-  }
-  const levelTitle =
-    breadcrumbs.length > 0
-      ? breadcrumbs[breadcrumbs.length - 1].name
-      : hierarchy?.enterprise?.name
-        ? `${hierarchy.enterprise.name} — мережа`
-        : "Підприємства";
-  const currentRows = [...currentNodes].sort((a, b) => Number(b.total_kwh || 0) - Number(a.total_kwh || 0));
-  const allNodes = [];
-  const collectNodes = (nodes) => {
-    for (const n of nodes || []) {
-      allNodes.push(n);
-      collectNodes(n.children || []);
+  useEffect(() => {
+    if (!substationId) {
+      setTransformers([]);
+      setTransformerId("");
+      setLines([]);
+      setLineId("");
+      return;
+    }
+    (async () => {
+      try {
+        const trs = await getTransformers(Number(substationId));
+        setTransformers(trs);
+        setTransformerId("");
+        setLines([]);
+        setLineId("");
+      } catch {
+        setTransformers([]);
+      }
+    })();
+  }, [substationId]);
+
+  useEffect(() => {
+    if (!transformerId) {
+      setLines([]);
+      setLineId("");
+      return;
+    }
+    (async () => {
+      try {
+        const ls = await getLines({ transformer_id: Number(transformerId) });
+        setLines(ls);
+        setLineId("");
+      } catch {
+        setLines([]);
+      }
+    })();
+  }, [transformerId]);
+
+  const sitesOnLine = useMemo(() => {
+    if (!lineId) return [];
+    const sids = new Set(meters.filter((m) => String(m.line_id) === String(lineId)).map((m) => m.site_id));
+    return sites.filter((s) => sids.has(s.id));
+  }, [lineId, meters, sites]);
+
+  const isoRange = useCallback(() => {
+    const df = new Date(`${dateFrom}T00:00:00.000Z`).toISOString();
+    const dt = new Date(`${dateTo}T23:59:59.999Z`).toISOString();
+    return { df, dt };
+  }, [dateFrom, dateTo]);
+
+  const loadLineReport = useCallback(async () => {
+    if (!lineId) {
+      pushToast("Оберіть лінію", "error");
+      return;
+    }
+    setLoading(true);
+    setCompare(null);
+    try {
+      const { df, dt } = isoRange();
+      const data = await getLineLoadReport({
+        lineId: Number(lineId),
+        dateFrom: df,
+        dateTo: dt,
+        granularity,
+        enterpriseId: enterpriseId || undefined,
+        substationId: substationId || undefined,
+        transformerId: transformerId || undefined,
+        siteId: siteFilterId || undefined
+      });
+      setLineData(data);
+      pushToast("Звіт оновлено", "success");
+    } catch {
+      pushToast("Не вдалося сформувати звіт", "error");
+      setLineData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [lineId, isoRange, granularity, enterpriseId, substationId, transformerId, siteFilterId]);
+
+  const handleCompare = async (siteA, siteB) => {
+    if (!lineId) return;
+    setLoading(true);
+    try {
+      const { df, dt } = isoRange();
+      const d = await getSiteCompareOnLine({
+        lineId: Number(lineId),
+        dateFrom: df,
+        dateTo: dt,
+        enterpriseId: enterpriseId || undefined,
+        substationId: substationId || undefined,
+        transformerId: transformerId || undefined,
+        siteA,
+        siteB
+      });
+      setCompare(d);
+    } catch {
+      pushToast("Порівняння не вдалося", "error");
+    } finally {
+      setLoading(false);
     }
   };
-  collectNodes(hierarchyRoots);
-  const topProblems = allNodes
-    .filter((n) => ["site", "meter", "line"].includes(n.node_type))
-    .filter((n) => Number(n.delta_pct || 0) >= 10)
-    .sort((a, b) => Number(b.delta_pct || 0) - Number(a.delta_pct || 0))
-    .slice(0, 5);
+
+  const handleRebuild = async () => {
+    try {
+      await rebuildReports();
+      await loadLineReport();
+      pushToast("Агрегати перебудовано", "success");
+    } catch {
+      pushToast("Помилка перебудови", "error");
+    }
+  };
+
+  const handleExportCsv = async () => {
+    if (!lineId) return;
+    try {
+      const { df, dt } = isoRange();
+      const blob = await downloadLineReportCsv({
+        lineId: Number(lineId),
+        dateFrom: df,
+        dateTo: dt,
+        granularity,
+        enterpriseId: enterpriseId || undefined,
+        substationId: substationId || undefined,
+        transformerId: transformerId || undefined,
+        siteId: siteFilterId || undefined
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `line_${lineId}_report.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      pushToast("CSV завантажено", "success");
+    } catch {
+      pushToast("Експорт CSV не вдався", "error");
+    }
+  };
+
+  const handleExportPdf = () => {
+    window.alert("Експорт PDF буде додано в наступній версії (зараз доступний CSV).");
+  };
+
+  const ctx = lineData?.context;
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={{ display: "grid", gap: 14 }}>
       <Toasts items={toasts} />
       <div style={styles.card}>
-        <h3>Дії з агрегаціями</h3>
-        <button
-          style={styles.button}
-          onClick={async () => {
-            try {
-              await rebuildReports();
-              await load();
-              pushToast("Звіти перебудовано.", "success");
-            } catch {
-              pushToast("Не вдалося перебудувати звіти.", "error");
-            }
-          }}
-        >
-          Перебудувати звіти
-        </button>
+        <h2 style={{ marginTop: 0 }}>Звіти: навантаження по лінії</h2>
+        <p style={styles.muted}>
+          Аналітичний dashboard для оператора: лінія → об’єкти → лічильники, KPI, графіки та сповіщення.
+        </p>
       </div>
-      <div style={styles.card}>
-        <h3>Параметри звітів</h3>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
-          <div style={{ minWidth: 260 }}>
-            <FieldLabel text="Підприємство" />
-            <select
-              style={styles.input}
-              value={enterpriseId}
-              onChange={(e) => {
-                setEnterpriseId(e.target.value);
-                setCmp(null);
-                setHierarchyPath([]);
-              }}
-            >
-              {enterprises.length === 0 ? (
-                <option value="">Немає підприємств</option>
-              ) : (
-                enterprises.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.id} — {e.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-          <div style={{ minWidth: 190 }}>
-            <FieldLabel text="Від дати" />
-            <input type="date" style={styles.input} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          </div>
-          <div style={{ minWidth: 190 }}>
-            <FieldLabel text="До дати" />
-            <input type="date" style={styles.input} value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          </div>
-          <div style={{ minWidth: 120 }}>
-            <FieldLabel text="KPI, днів" />
-            <input
-              type="number"
-              min="1"
-              max="365"
-              style={styles.input}
-              value={summaryDays}
-              onChange={(e) => setSummaryDays(e.target.value)}
-            />
-          </div>
-          <button
-            style={styles.button}
-            onClick={async () => {
-              try {
-                await load();
-                setCmp(null);
-                pushToast("Звіти оновлено за фільтрами.", "success");
-              } catch {
-                pushToast("Не вдалося оновити звіти.", "error");
-              }
-            }}
-          >
-            Застосувати
-          </button>
-        </div>
-      </div>
-      {enterpriseId && summary ? (
-        <div style={styles.grid4}>
-          <div style={styles.card}>
-            <div style={styles.muted}>Сумарно за період</div>
-            <div style={{ fontSize: 24, fontWeight: 700 }}>{fmt(summary.kpi?.total_kwh)} кВт·год</div>
-          </div>
-          <div style={styles.card}>
-            <div style={styles.muted}>Середньодобово</div>
-            <div style={{ fontSize: 24, fontWeight: 700 }}>{fmt(summary.kpi?.avg_daily_kwh)} кВт·год</div>
-          </div>
-          <div style={styles.card}>
-            <div style={styles.muted}>Активні об'єкти / лічильники</div>
-            <div style={{ fontSize: 24, fontWeight: 700 }}>
-              {summary.kpi?.active_sites ?? 0} / {summary.kpi?.active_meters ?? 0}
-            </div>
-          </div>
-          <div style={styles.card}>
-            <div style={styles.muted}>Тренд до попереднього періоду</div>
-            <div style={{ fontSize: 24, fontWeight: 700 }}>{fmtPct(summary.kpi?.trend_pct_vs_prev_period)}</div>
-          </div>
+      <ReportFilters
+        enterprises={enterprises}
+        enterpriseId={enterpriseId}
+        onEnterprise={(v) => {
+          setEnterpriseId(v);
+          setLineData(null);
+        }}
+        substations={substations}
+        substationId={substationId}
+        onSubstation={(v) => {
+          setSubstationId(v);
+          setLineData(null);
+        }}
+        transformers={transformers}
+        transformerId={transformerId}
+        onTransformer={(v) => {
+          setTransformerId(v);
+          setLineData(null);
+        }}
+        lines={lines}
+        lineId={lineId}
+        onLine={(v) => {
+          setLineId(v);
+          setLineData(null);
+        }}
+        sitesOnLine={sitesOnLine}
+        siteFilterId={siteFilterId}
+        onSiteFilter={setSiteFilterId}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onDateFrom={setDateFrom}
+        onDateTo={setDateTo}
+        granularity={granularity}
+        onGranularity={setGranularity}
+        onApply={loadLineReport}
+        onRebuild={handleRebuild}
+        onExportCsv={handleExportCsv}
+        onExportPdf={handleExportPdf}
+        loading={loading}
+      />
+      {ctx ? (
+        <div style={styles.card}>
+          <h3 style={{ marginTop: 0 }}>Контекст звіту</h3>
+          <p style={{ fontSize: 15, lineHeight: 1.5 }}>
+            <b>{ctx.enterprise.name}</b> → <b>{ctx.substation.name}</b> → <b>{ctx.transformer.name}</b> (
+            {ctx.transformer.code}) → <b>{ctx.line.name}</b> ({ctx.line.code})
+          </p>
+          <p style={styles.muted}>
+            Період: {new Date(ctx.period.date_from).toLocaleString("uk-UA")} — {new Date(ctx.period.date_to).toLocaleString("uk-UA")}{" "}
+            · Гранулярність: {ctx.granularity === "hourly" ? "погодинно" : ctx.granularity === "monthly" ? "помісячно" : "подобово"}
+            {ctx.site_filter_id ? ` · Фільтр об'єкта #${ctx.site_filter_id}` : ""}
+          </p>
         </div>
       ) : null}
-      {enterpriseId && hierarchy ? (
-        <div style={styles.card}>
-          <h3>Структурований звіт (drill-down)</h3>
-          <div style={styles.muted}>
-            Період: {new Date(hierarchy.period.from_date).toLocaleString()} — {new Date(hierarchy.period.to_date).toLocaleString()}
-            {hierarchy.enterprise ? ` · ${hierarchy.enterprise.name}` : ""}
-          </div>
-          <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={styles.muted}>Рівень:</span>
-            <button style={styles.buttonSecondary} onClick={() => setHierarchyPath([])}>
-              {hierarchy.enterprise ? "На початок (мережа)" : "Підприємства"}
-            </button>
-            {breadcrumbs.map((crumb, idx) => (
-              <button
-                key={nodeKey(crumb)}
-                style={styles.buttonSecondary}
-                onClick={() => setHierarchyPath(hierarchyPath.slice(0, idx + 1))}
-              >
-                {crumb.name}
-              </button>
-            ))}
-          </div>
-          <div style={{ marginTop: 10 }}>
-            <DataTable
-              columns={["Рівень", "Назва", "кВт·год", "Δ кВт·год", "Δ %", "Частка", "Статус", "Дія"]}
-              rows={currentRows.map((node) => {
-                const severity = severityOf(node);
-                const action = (node.children || []).length > 0 ? "Відкрити" : "-";
-                return [
-                  node.node_type,
-                  node.name,
-                  fmt(node.total_kwh),
-                  fmt(node.delta_kwh),
-                  fmtPct(node.delta_pct),
-                  fmtPct(node.percent_of_parent),
-                  severity.toUpperCase(),
-                  action
-                ];
-              })}
-            />
-          </div>
-          <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-            <div><b>Поточний вузол:</b> {levelTitle}</div>
-            <div style={styles.muted}>Клікни “Відкрити” в рядку нижче, щоб провалитись на рівень глибше.</div>
-          </div>
-          <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
-            {currentRows.map((node) => (
-              (node.children || []).length > 0 ? (
-                <button
-                  key={`open-${nodeKey(node)}`}
-                  style={styles.buttonSecondary}
-                  onClick={() => setHierarchyPath([...hierarchyPath, nodeKey(node)])}
-                >
-                  Відкрити: {node.name}
-                </button>
-              ) : null
-            ))}
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <h4 style={{ margin: "8px 0" }}>Топ проблем (Δ%):</h4>
-            {topProblems.length === 0 ? (
-              <div style={styles.muted}>Проблемні вузли не виявлено.</div>
-            ) : (
-              <div style={{ display: "grid", gap: 6 }}>
-                {topProblems.map((node) => {
-                  const sev = severityOf(node);
-                  return (
-                    <div key={`problem-${nodeKey(node)}`} style={{ ...severityStyle(sev), fontSize: 14 }}>
-                      {node.node_type}: {node.name} — Δ {fmtPct(node.delta_pct)} ({fmt(node.delta_kwh)} кВт·год)
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      ) : null}
-      <div style={styles.grid2}>
-        <div style={styles.card}>
-          <h3>Добовий звіт</h3>
-          {!enterpriseId ? (
-            <div style={styles.muted}>Оберіть підприємство.</div>
-          ) : (
-            <DataTable columns={["Об'єкт", "Лічильник", "День", "кВт·год"]} rows={daily.slice(0, 50).map((r) => [siteNameById[r.site_id] ?? r.site_id, r.meter_id, new Date(r.day).toLocaleDateString(), Number(r.total_kwh).toFixed(2)])} />
-          )}
-        </div>
-        <div style={styles.card}>
-          <h3>Місячний звіт</h3>
-          {!enterpriseId ? (
-            <div style={styles.muted}>Оберіть підприємство.</div>
-          ) : (
-            <DataTable columns={["Об'єкт", "Лічильник", "Місяць", "кВт·год"]} rows={monthly.slice(0, 50).map((r) => [siteNameById[r.site_id] ?? r.site_id, r.meter_id, new Date(r.month).toLocaleDateString(), Number(r.total_kwh).toFixed(2)])} />
-          )}
-        </div>
-      </div>
-      <div style={styles.card}>
-        <h3>Порівняння двох об'єктів</h3>
-        <div style={{ display: "flex", gap: 8 }}>
-          <div style={{ minWidth: 240 }}>
-            <FieldLabel text="Об'єкт A" />
-            <select style={styles.input} value={siteA} onChange={(e) => setSiteA(e.target.value)} disabled={!enterpriseId}>
-              {sitesForEnterprise.map((s) => (
-                <option key={s.id} value={s.id}>{s.id} - {s.name}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ minWidth: 240 }}>
-            <FieldLabel text="Об'єкт B" />
-            <select style={styles.input} value={siteB} onChange={(e) => setSiteB(e.target.value)} disabled={!enterpriseId}>
-              {sitesForEnterprise.map((s) => (
-                <option key={s.id} value={s.id}>{s.id} - {s.name}</option>
-              ))}
-            </select>
-          </div>
-          <button
-            style={styles.button}
-            onClick={async () => {
-              if (!siteA || !siteB) return pushToast("Оберіть два об'єкти.", "error");
-              if (String(siteA) === String(siteB)) return pushToast("Об'єкти мають бути різними.", "error");
-              try {
-                setCmp(
-                  await compareSites(Number(siteA), Number(siteB), {
-                    fromDate: fromDate ? new Date(`${fromDate}T00:00:00Z`).toISOString() : undefined,
-                    toDate: toDate ? new Date(`${toDate}T23:59:59Z`).toISOString() : undefined,
-                    enterpriseId
-                  })
-                );
-              } catch {
-                pushToast("Не вдалося виконати порівняння.", "error");
-              }
-            }}
-          >
-            Порівняти
-          </button>
-        </div>
-        {cmp ? (
-          <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
-            <div>
-              <b>{cmp.siteA.name}</b>: {fmt(cmp.siteA.total_kwh)} кВт·год
-            </div>
-            <div>
-              <b>{cmp.siteB.name}</b>: {fmt(cmp.siteB.total_kwh)} кВт·год
-            </div>
-            <div>
-              Різниця: <b>{fmt(cmp.difference_kwh)} кВт·год</b> ({fmtPct(cmp.difference_pct_vs_siteB)})
-            </div>
-          </div>
-        ) : null}
-      </div>
-      {enterpriseId && summary ? (
+      {lineData ? <ReportKpis kpi={lineData.kpi} context={lineData.context} /> : null}
+      {lineData ? (
         <div style={styles.grid2}>
-          <div style={styles.card}>
-            <h3>Топ об'єкти за споживанням</h3>
-            <DataTable
-              columns={["Об'єкт", "кВт·год"]}
-              rows={(summary.top_sites || []).map((r) => [r.name || `#${r.site_id}`, fmt(r.total_kwh)])}
-            />
-          </div>
-          <div style={styles.card}>
-            <h3>Топ лічильники</h3>
-            <DataTable
-              columns={["Лічильник", "Зона", "кВт·год"]}
-              rows={(summary.top_meters || []).map((r) => [r.serial_number || r.meter_id, r.zone_name || "-", fmt(r.total_kwh)])}
-            />
-          </div>
+          <LineConsumptionChart timeSeries={lineData.time_series} granularity={granularity} />
+          <SiteDistributionChart sitesDistribution={lineData.sites_distribution} />
         </div>
+      ) : null}
+      {lineData ? (
+        <SiteComparisonPanel
+          sitesDistribution={lineData.sites_distribution}
+          onCompare={handleCompare}
+          compare={compare}
+          loading={loading}
+        />
+      ) : null}
+      {lineData ? (
+        <HierarchicalDetailsTable hierarchyTable={lineData.hierarchy_table} metersBySite={lineData.meters_by_site} />
+      ) : null}
+      {lineData ? <TopListsCards topSites={lineData.top_sites} topMeters={lineData.top_meters} /> : null}
+      {lineData ? (
+        <AlertsSummaryCard alerts={lineData.alerts} summaryBySeverity={lineData.alerts_summary_by_severity} />
       ) : null}
     </div>
   );

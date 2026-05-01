@@ -103,7 +103,86 @@ export const getHierarchyReport = async ({ fromDate, toDate, enterpriseId } = {}
   return (await api.get(`/reports/hierarchy${qs ? `?${qs}` : ""}`)).data;
 };
 
-export const getAlerts = async () => (await api.get("/alerts")).data;
+const _lineReportParams = (p) => {
+  const q = new URLSearchParams();
+  q.set("line_id", String(p.lineId));
+  q.set("date_from", p.dateFrom);
+  q.set("date_to", p.dateTo);
+  q.set("granularity", p.granularity || "daily");
+  if (p.enterpriseId != null && p.enterpriseId !== "") q.set("enterprise_id", String(p.enterpriseId));
+  if (p.substationId != null && p.substationId !== "") q.set("substation_id", String(p.substationId));
+  if (p.transformerId != null && p.transformerId !== "") q.set("transformer_id", String(p.transformerId));
+  if (p.siteId != null && p.siteId !== "") q.set("site_id", String(p.siteId));
+  return q;
+};
+
+export const getLineLoadReport = async (p) => (await api.get(`/reports/line-load?${_lineReportParams(p).toString()}`)).data;
+
+export const getSiteCompareOnLine = async (p) => {
+  const q = _lineReportParams({ ...p, siteId: undefined });
+  q.set("site_a", String(p.siteA));
+  q.set("site_b", String(p.siteB));
+  return (await api.get(`/reports/site-compare?${q.toString()}`)).data;
+};
+
+export const getTopSitesOnLine = async (p) => {
+  const q = _lineReportParams(p);
+  if (p.limit) q.set("limit", String(p.limit));
+  return (await api.get(`/reports/top-sites?${q.toString()}`)).data;
+};
+
+export const getTopMetersOnLine = async (p) => {
+  const q = _lineReportParams(p);
+  if (p.limit) q.set("limit", String(p.limit));
+  return (await api.get(`/reports/top-meters?${q.toString()}`)).data;
+};
+
+export const getAlertsSummaryOnLine = async (p) =>
+  (await api.get(`/reports/alerts-summary?${_lineReportParams(p).toString()}`)).data;
+
+export const downloadLineReportCsv = async (p) => {
+  const res = await api.get(`/reports/line-load/export.csv?${_lineReportParams(p).toString()}`, { responseType: "blob" });
+  return res.data;
+};
+
+/** @param {Record<string, string|boolean|number|undefined|null>} [params] */
+const _alertsListParams = (params = {}) => {
+  const q = new URLSearchParams();
+  if (params.active_only !== undefined && params.active_only !== null)
+    q.set("active_only", String(params.active_only));
+  if (params.severity) q.set("severity", String(params.severity));
+  if (params.date_from) q.set("date_from", String(params.date_from));
+  if (params.date_to) q.set("date_to", String(params.date_to));
+  if (params.enterprise_id != null && params.enterprise_id !== "")
+    q.set("enterprise_id", String(params.enterprise_id));
+  if (params.site_id != null && params.site_id !== "") q.set("site_id", String(params.site_id));
+  if (params.meter_id != null && params.meter_id !== "") q.set("meter_id", String(params.meter_id));
+  if (params.line_id != null && params.line_id !== "") q.set("line_id", String(params.line_id));
+  if (params.limit) q.set("limit", String(params.limit));
+  return q;
+};
+
+/** @param {Record<string, string|boolean|number|undefined|null>} [params] */
+export const getAlerts = async (params) => {
+  const q = _alertsListParams(params || {});
+  const qs = q.toString();
+  return (await api.get(`/alerts${qs ? `?${qs}` : ""}`)).data;
+};
+
+/** @param {Record<string, string|boolean|number|undefined|null>} [params] */
+export const getAlertsSummary = async (params) => {
+  const q = _alertsListParams(params || {});
+  q.delete("severity");
+  q.delete("site_id");
+  q.delete("meter_id");
+  q.delete("line_id");
+  q.delete("limit");
+  const qs = q.toString();
+  return (await api.get(`/alerts/summary${qs ? `?${qs}` : ""}`)).data;
+};
+
+export const resolveAlert = async (alertId) => (await api.post(`/alerts/${alertId}/resolve`)).data;
+
 export const createAlertRule = async (payload) => (await api.post("/alerts/rules", payload)).data;
 export const getAlertRules = async () => (await api.get("/alerts/rules")).data;
 export const updateAlertRule = async (ruleId, payload) => (await api.put(`/alerts/rules/${ruleId}`, payload)).data;

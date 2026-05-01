@@ -21,6 +21,7 @@ export const styles = {
   link: { padding: "8px 12px", border: "1px solid #d7dbe7", borderRadius: 8, textDecoration: "none", color: "#1f2937", background: "#fff" },
   card: { border: "1px solid #d7dbe7", borderRadius: 10, padding: 16, background: "#fff", minWidth: 0, overflow: "hidden" },
   grid4: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 },
+  grid3: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 },
   grid2: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 12 },
   input: { width: "100%", padding: 8, border: "1px solid #cbd5e1", borderRadius: 8 },
   inputError: { border: "1px solid #dc2626" },
