@@ -164,6 +164,7 @@ class AlertRule(Base):
     rule_type: Mapped[str] = mapped_column(String(64), default="threshold")
     threshold_kwh: Mapped[float] = mapped_column(Float, nullable=False, default=500)
     severity: Mapped[str] = mapped_column(String(32), nullable=False, default="medium")
+    window_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
     enabled: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -171,6 +172,9 @@ class AlertRule(Base):
 class Alert(Base):
     __tablename__ = "alerts"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    alert_rule_id: Mapped[int | None] = mapped_column(
+        ForeignKey("alert_rules.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     meter_id: Mapped[int] = mapped_column(ForeignKey("meters.id"), nullable=True)
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), nullable=True)
     substation_id: Mapped[int | None] = mapped_column(ForeignKey("substations.id"), nullable=True, index=True)

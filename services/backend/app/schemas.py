@@ -16,6 +16,7 @@ class SiteOut(BaseModel):
     line_id: int | None = None
     name: str
     location: str | None = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -151,10 +152,12 @@ class MeterOut(BaseModel):
     line_id: int
     zone_name: str
     meter_role: str
+    is_main_meter: bool = False
     serial_number: str
     meter_type: str
     status: str
     last_seen_at: datetime | None = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -173,6 +176,7 @@ class ReadingOut(BaseModel):
     ts: datetime
     value_kwh: float
     source: str
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -182,8 +186,9 @@ class AlertRuleIn(BaseModel):
     site_id: int | None = None
     meter_id: int | None = None
     rule_type: str = "threshold"
-    threshold_kwh: float
+    threshold_kwh: float = Field(gt=0)
     severity: str = "medium"
+    window_days: int = Field(default=30, ge=1, le=366)
     enabled: bool = True
 
 
@@ -194,7 +199,9 @@ class AlertRuleOut(BaseModel):
     rule_type: str
     threshold_kwh: float
     severity: str
+    window_days: int = 30
     enabled: bool
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True

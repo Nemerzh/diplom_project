@@ -5,9 +5,9 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, aliased
 
 from app.db import get_db
-from app.metrics import ALERTS_GENERATED_TOTAL
-from app.models import Alert, AlertRule, DailyAggregation, ElectricalLine, Enterprise, Meter, Site, Substation, Transformer
+from app.models import Alert, AlertRule, ElectricalLine, Enterprise, Meter, Site, Substation, Transformer
 from app.schemas import AlertRuleIn, AlertRuleOut
+from app.services.threshold_alerts import evaluate_threshold_rules
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -115,6 +115,7 @@ def update_rule(rule_id: int, payload: AlertRuleIn, db: Session = Depends(get_db
     rule.rule_type = payload.rule_type
     rule.threshold_kwh = payload.threshold_kwh
     rule.severity = payload.severity
+    rule.window_days = payload.window_days
     rule.enabled = payload.enabled
     db.commit()
     db.refresh(rule)
@@ -133,48 +134,7 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db)):
 
 @router.post("/run")
 def run_alerts(db: Session = Depends(get_db)):
-    rules = db.query(AlertRule).filter(AlertRule.enabled.is_(True)).all()
-    created = 0
-    since = datetime.utcnow() - timedelta(days=30)
-    for rule in rules:
-        q = db.query(DailyAggregation).filter(DailyAggregation.day >= since)
-        if rule.site_id:
-            q = q.filter(DailyAggregation.site_id == rule.site_id)
-        if rule.meter_id:
-            q = q.filter(DailyAggregation.meter_id == rule.meter_id)
-        total = q.with_entities(func.coalesce(func.sum(DailyAggregation.total_kwh), 0)).scalar() or 0
-        if float(total) > rule.threshold_kwh:
-            line_id = None
-            site_id = rule.site_id
-            substation_id = None
-            transformer_id = None
-            if rule.meter_id:
-                meter = db.query(Meter).filter(Meter.id == rule.meter_id).first()
-                if meter:
-                    site_id = meter.site_id
-                    line_id = meter.line_id
-                    if line_id:
-                        line = db.query(ElectricalLine).filter(ElectricalLine.id == line_id).first()
-                        if line:
-                            transformer_id = line.transformer_id
-                            tr = db.query(Transformer).filter(Transformer.id == transformer_id).first()
-                            if tr:
-                                substation_id = tr.substation_id
-            alert = Alert(
-                meter_id=rule.meter_id,
-                site_id=site_id,
-                line_id=line_id,
-                substation_id=substation_id,
-                transformer_id=transformer_id,
-                alert_type=rule.rule_type,
-                severity=rule.severity,
-                message=f"За останні 30 днів споживання {total:.2f} кВт·год перевищило поріг {rule.threshold_kwh:.2f} кВт·год",
-                created_at=datetime.utcnow(),
-            )
-            db.add(alert)
-            created += 1
-            ALERTS_GENERATED_TOTAL.inc()
-    db.commit()
+    created = evaluate_threshold_rules(db)
     return {"alerts_created": created}
 
 

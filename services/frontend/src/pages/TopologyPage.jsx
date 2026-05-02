@@ -1,20 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getTopologyOverview, postTopologyRecompute } from "../api";
+import TopologyGraphView from "../topology/TopologyGraphView.jsx";
+import TopologyTreeView from "../topology/TopologyTreeView.jsx";
+import { collectEnterprisesFromTopology, pruneTopologyBySiteEnterprise } from "../topology/topologyFilter.js";
 import { FieldLabel, styles } from "../ui.jsx";
 
-const statusStyle = {
-  normal: { background: "#dcfce7", color: "#166534", border: "1px solid #86efac" },
-  warning: { background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" },
-  critical: { background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5" },
-  offline: { background: "#f3f4f6", color: "#4b5563", border: "1px solid #d1d5db" }
-};
-
-function Badge({ status, children }) {
-  const s = statusStyle[status] || statusStyle.offline;
-  return (
-    <span style={{ ...s, borderRadius: 6, padding: "2px 8px", fontSize: 12, fontWeight: 600 }}>{children}</span>
-  );
-}
+const VIEW_STORAGE_KEY = "topology_view_mode";
+const GRAPH_ENT_STORAGE_KEY = "topology_graph_enterprise_id";
 
 export default function TopologyPage() {
   const [data, setData] = useState(null);
@@ -22,6 +14,46 @@ export default function TopologyPage() {
   const [recomputing, setRecomputing] = useState(false);
   const [error, setError] = useState(null);
   const [lastResult, setLastResult] = useState(null);
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const v = localStorage.getItem(VIEW_STORAGE_KEY);
+      return v === "graph" ? "graph" : "tree";
+    } catch {
+      return "tree";
+    }
+  });
+
+  /** Фільтр графа за підприємством (об'єкти site); "" = усі. */
+  const [graphEnterpriseId, setGraphEnterpriseId] = useState(() => {
+    try {
+      return localStorage.getItem(GRAPH_ENT_STORAGE_KEY) || "";
+    } catch {
+      return "";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, viewMode);
+    } catch {
+      // ignore
+    }
+  }, [viewMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(GRAPH_ENT_STORAGE_KEY, graphEnterpriseId);
+    } catch {
+      // ignore
+    }
+  }, [graphEnterpriseId]);
+
+  const graphEnterprises = useMemo(() => collectEnterprisesFromTopology(data?.substations), [data]);
+
+  const graphSubstations = useMemo(
+    () => pruneTopologyBySiteEnterprise(data?.substations, graphEnterpriseId),
+    [data, graphEnterpriseId]
+  );
 
   /** Спочатку перерахунок з показів → потім дерево. Інакше load_snapshots застарілі. */
   const load = useCallback(async (silent) => {
@@ -80,12 +112,27 @@ export default function TopologyPage() {
         <p style={styles.muted}>
           Лічильники симулятора (<code>METER_IDS</code>) мають існувати в БД і бути прив&apos;язані до site+line — інакше навантаження лишиться 0.
         </p>
-        <div style={styles.toolbar}>
+        <div style={{ ...styles.toolbar, flexWrap: "wrap", alignItems: "center", gap: 10 }}>
           <button style={styles.button} type="button" onClick={onRecompute} disabled={recomputing}>
             {recomputing ? "Оновлення…" : "Оновити зараз (перерахунок + дерево)"}
           </button>
           <button style={styles.buttonSecondary} type="button" onClick={() => loadOverviewOnly()}>
             Лише перегляд (GET overview, без перерахунку)
+          </button>
+          <span style={styles.muted}>Вигляд:</span>
+          <button
+            type="button"
+            style={viewMode === "tree" ? styles.button : styles.buttonSecondary}
+            onClick={() => setViewMode("tree")}
+          >
+            Дерево (список)
+          </button>
+          <button
+            type="button"
+            style={viewMode === "graph" ? styles.button : styles.buttonSecondary}
+            onClick={() => setViewMode("graph")}
+          >
+            Граф (схема)
           </button>
           {lastResult ? (
             <span style={styles.muted}>
@@ -93,6 +140,34 @@ export default function TopologyPage() {
             </span>
           ) : null}
         </div>
+        {viewMode === "graph" ? (
+          <p style={{ ...styles.muted, marginBottom: 0 }}>
+            У режимі графа можна масштабувати та пересувати полотно (pan/zoom). Вузли лише для перегляду.
+          </p>
+        ) : null}
+        {viewMode === "graph" && data ? (
+          <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
+            <div style={{ minWidth: 220 }}>
+              <FieldLabel text="Підприємство на схемі" />
+              <select
+                style={{ ...styles.input, maxWidth: 360 }}
+                value={graphEnterpriseId}
+                onChange={(e) => setGraphEnterpriseId(e.target.value)}
+              >
+                <option value="">Усі підприємства (повна схема)</option>
+                {graphEnterprises.map((e) => (
+                  <option key={e.id} value={String(e.id)}>
+                    {e.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p style={{ ...styles.muted, margin: 0, flex: "1 1 240px" }}>
+              За вибором одного підприємства залишаються лише гілки ПС → … → об&apos;єкти (site), що належать цьому
+              підприємству; порожні лінії прибираються.
+            </p>
+          </div>
+        ) : null}
         {error ? <p style={{ color: "#b91c1c", marginBottom: 0 }}>{String(error)}</p> : null}
       </div>
 
@@ -100,79 +175,18 @@ export default function TopologyPage() {
         <div style={styles.card}>Завантаження…</div>
       ) : null}
 
-      {data?.substations?.map((sub) => (
-        <div key={sub.id} style={{ ...styles.card, borderLeft: "4px solid #2563eb" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline" }}>
-            <strong>{sub.code}</strong>
-            <span>{sub.name}</span>
-            <Badge status={sub.status}>{sub.status}</Badge>
-            <span style={styles.muted}>
-              {sub.load_kw != null ? `${sub.load_kw} кВт` : "—"}
-              {sub.rated_capacity_kw != null ? ` / номінал ${sub.rated_capacity_kw} кВт` : ""}
-            </span>
-          </div>
-          {(sub.transformers || []).length === 0 ? (
-            <p style={styles.muted}>Немає трансформаторів у цій підстанції.</p>
-          ) : (
-            <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-              {(sub.transformers || []).map((tr) => (
-                <div
-                  key={tr.id}
-                  style={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    padding: 12,
-                    background: "#fafafa"
-                  }}
-                >
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline" }}>
-                    <strong>{tr.code}</strong>
-                    <span>{tr.name}</span>
-                    <Badge status={tr.status}>{tr.status}</Badge>
-                    <span style={styles.muted}>{tr.load_kw != null ? `${tr.load_kw} кВт` : "—"}</span>
-                  </div>
-                  {(tr.lines || []).map((line) => (
-                    <div key={line.id} style={{ marginTop: 8, padding: 8, border: "1px dashed #d1d5db", borderRadius: 8 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline" }}>
-                        <strong>{line.code}</strong>
-                        <span>{line.name}</span>
-                        <Badge status={line.status}>{line.status}</Badge>
-                        <span style={styles.muted}>{line.load_kw != null ? `${line.load_kw} кВт` : "—"}</span>
-                      </div>
-                      {(line.sites || []).length > 0 ? (
-                        <div style={{ marginTop: 8 }}>
-                          <FieldLabel text="Об'єкти (sites)" />
-                          <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
-                            {(line.sites || []).map((site) => (
-                              <li key={site.id}>
-                                {site.name}
-                                {site.enterprise_name ? ` (${site.enterprise_name})` : ""}{" "}
-                                <Badge status={site.status}>{site.status}</Badge>{" "}
-                                <span style={styles.muted}>{site.load_kw != null ? `${site.load_kw} кВт` : ""}</span>
-                                {(site.meters || []).length > 0 ? (
-                                  <ul style={{ margin: "4px 0 0 18px", padding: 0 }}>
-                                    {site.meters.map((m) => (
-                                      <li key={m.id}>
-                                        #{m.id} {m.serial_number} [{m.zone_name}] {m.meter_role}{" "}
-                                        <Badge status={m.status}>{m.status}</Badge>{" "}
-                                        <span style={styles.muted}>{m.load_kw != null ? `${m.load_kw} кВт` : ""}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
+      {data && viewMode === "tree" ? <TopologyTreeView data={data} /> : null}
+      {data && viewMode === "graph" && graphEnterpriseId && graphSubstations.length === 0 ? (
+        <div style={styles.card}>
+          <p style={{ margin: 0, color: "#64748b" }}>
+            Для обраного підприємства немає об&apos;єктів у топології (або вони не прив&apos;язані до ліній). Оберіть
+            «Усі підприємства» або перевірте дані в адмін-панелі.
+          </p>
         </div>
-      ))}
+      ) : null}
+      {data && viewMode === "graph" && !(graphEnterpriseId && graphSubstations.length === 0) ? (
+        <TopologyGraphView substations={graphSubstations} />
+      ) : null}
     </div>
   );
 }

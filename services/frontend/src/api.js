@@ -9,8 +9,8 @@ export const getDashboard = async () => {
   const [sites, meters, readings, alerts, daily] = await Promise.all([
     api.get("/sites"),
     api.get("/meters"),
-    api.get("/readings?limit=200"),
-    api.get("/alerts"),
+    api.get("/readings?limit=500"),
+    api.get("/alerts?limit=200&active_only=true"),
     api.get("/reports/daily")
   ]);
   return {
@@ -63,7 +63,9 @@ export const getReadings = async (limit = 200) => (await api.get(`/readings?limi
 export const createReading = async (payload) => (await api.post("/readings", payload)).data;
 
 export const runValidation = async () => (await api.post("/validation/run")).data;
-export const getValidationIssues = async () => (await api.get("/validation/issues")).data;
+/** @param {number} [limit] max issues to fetch (default 800) */
+export const getValidationIssues = async (limit = 800) =>
+  (await api.get(`/validation/issues?limit=${limit}`)).data;
 
 export const rebuildReports = async () => (await api.post("/reports/rebuild")).data;
 export const getDailyReports = async ({ fromDate, toDate, enterpriseId } = {}) => {

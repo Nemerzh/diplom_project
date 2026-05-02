@@ -44,6 +44,7 @@ def overview(db: Session = Depends(get_db)):
                         {
                             "id": site.id,
                             "name": site.name,
+                            "enterprise_id": site.enterprise_id,
                             "enterprise_name": ent_name,
                             **snap("site", site.id),
                             "meters": [
@@ -72,12 +73,16 @@ def overview(db: Session = Depends(get_db)):
                 )
             tr_json.append({"id": tr.id, "code": tr.code, "name": tr.name, **snap("transformer", tr.id), "lines": lines_json})
 
+        ent_label = ""
+        if sub.enterprise_id is not None:
+            ent_label = enterprise_by_id.get(sub.enterprise_id, "")
         result.append(
             {
                 "id": sub.id,
                 "code": sub.code,
                 "name": sub.name,
                 "enterprise_id": sub.enterprise_id,
+                "enterprise_name": ent_label,
                 "rated_capacity_kw": sub.rated_capacity_kw,
                 "threshold_warning_kw": sub.threshold_warning_kw,
                 "threshold_critical_kw": sub.threshold_critical_kw,
