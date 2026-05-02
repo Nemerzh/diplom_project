@@ -138,8 +138,9 @@ export default function SitesPage() {
   }, [filtered]);
 
   return (
+    <div style={styles.page}>
     <div style={styles.card}>
-      <h3 style={{ marginTop: 0 }}>Об&apos;єкти обліку</h3>
+      <h3 style={styles.cardTitle}>Об&apos;єкти обліку</h3>
       <p style={styles.muted}>
         Об&apos;єкти (sites) у складі підприємства та прив&apos;язці до лінії електромережі. CRUD — у Адмін панелі.
       </p>
@@ -161,13 +162,13 @@ export default function SitesPage() {
         </div>
       </div>
 
-      <div style={{ ...styles.toolbar, alignItems: "flex-end", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+      <div style={styles.toolbarEnd}>
         <button type="button" style={styles.buttonSecondary} onClick={() => load()}>
           Оновити
         </button>
         <div style={{ minWidth: 200 }}>
           <FieldLabel text="Підприємство" />
-          <select style={styles.input} value={enterpriseFilter} onChange={(e) => setEnterpriseFilter(e.target.value)}>
+          <select style={styles.select} value={enterpriseFilter} onChange={(e) => setEnterpriseFilter(e.target.value)}>
             <option value="">Усі</option>
             {enterprises.map((e) => (
               <option key={e.id} value={String(e.id)}>
@@ -187,20 +188,7 @@ export default function SitesPage() {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          marginBottom: 10,
-          padding: "10px 12px",
-          background: "#f8fafc",
-          borderRadius: 8,
-          border: "1px solid #e2e8f0"
-        }}
-      >
+      <div style={styles.paginationBar}>
         <span style={{ ...styles.muted, fontSize: 13 }}>
           {filtered.length === 0
             ? "Немає записів у вибірці"
@@ -209,7 +197,7 @@ export default function SitesPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ ...styles.muted, fontSize: 13 }}>На сторінці</span>
           <select
-            style={{ ...styles.input, maxWidth: 88 }}
+            style={{ ...styles.select, maxWidth: 88 }}
             value={String(pageSize)}
             onChange={(e) => setPageSize(Number(e.target.value))}
           >
@@ -297,6 +285,7 @@ export default function SitesPage() {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 }

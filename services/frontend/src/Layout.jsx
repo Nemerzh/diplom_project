@@ -19,9 +19,9 @@ export default function Layout() {
     <div style={styles.app}>
       <header style={styles.header}>
         <div style={styles.container}>
-          <div style={styles.headerCard}>
+          <div style={styles.headerStack}>
             <h1 style={styles.title}>Платформа обліку електроенергії</h1>
-            <div style={styles.nav}>
+            <nav style={styles.nav} aria-label="Основна навігація">
               {links.map(([label, path]) => (
                 <NavLink
                   key={path}
@@ -35,7 +35,7 @@ export default function Layout() {
                   {label}
                 </NavLink>
               ))}
-            </div>
+            </nav>
           </div>
         </div>
       </header>

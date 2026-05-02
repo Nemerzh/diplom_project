@@ -101,9 +101,9 @@ export default function TopologyPage() {
   };
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={styles.page}>
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0 }}>Топологія мережі</h3>
+        <h3 style={styles.cardTitle}>Топологія мережі</h3>
         <p style={styles.muted}>
           Підстанція → трансформатор → лінія → об&apos;єкт (site) → лічильник. Після нових показів потрібен перерахунок агрегатів;
           ця сторінка робить його автоматично при відкритті, кнопці «Оновити» та кожні ~30 с.
@@ -150,7 +150,7 @@ export default function TopologyPage() {
             <div style={{ minWidth: 220 }}>
               <FieldLabel text="Підприємство на схемі" />
               <select
-                style={{ ...styles.input, maxWidth: 360 }}
+                style={{ ...styles.select, maxWidth: 360 }}
                 value={graphEnterpriseId}
                 onChange={(e) => setGraphEnterpriseId(e.target.value)}
               >

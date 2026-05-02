@@ -89,7 +89,7 @@ function PaginationBar({
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ ...styles.muted, fontSize: 13 }}>На сторінці</span>
         <select
-          style={{ ...styles.input, maxWidth: 88, padding: "4px 8px" }}
+          style={{ ...styles.select, maxWidth: 88, padding: "4px 8px" }}
           value={String(pageSize)}
           onChange={(e) => setPageSize(Number(e.target.value))}
         >
@@ -253,20 +253,20 @@ export default function NetworkPage() {
   };
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={styles.page}>
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0 }}>Електромережа</h3>
+        <h3 style={styles.cardTitle}>Електромережа</h3>
         <p style={styles.muted}>
           Структура: підприємство → підстанція → трансформатор → лінія → об&apos;єкти обліку. Дані лише для перегляду; редагування — у
           Адмін панелі (мережа).
         </p>
-        <div style={{ ...styles.toolbar, alignItems: "flex-end", flexWrap: "wrap", gap: 10 }}>
+        <div style={styles.toolbarEnd}>
           <button type="button" style={styles.buttonSecondary} onClick={() => load()}>
             Оновити
           </button>
           <div style={{ minWidth: 200 }}>
             <FieldLabel text="Підприємство" />
-            <select style={styles.input} value={enterpriseFilter} onChange={(e) => onEnterpriseChange(e.target.value)}>
+            <select style={styles.select} value={enterpriseFilter} onChange={(e) => onEnterpriseChange(e.target.value)}>
               <option value="">Усі</option>
               {enterprises.map((e) => (
                 <option key={e.id} value={String(e.id)}>
@@ -277,7 +277,7 @@ export default function NetworkPage() {
           </div>
           <div style={{ minWidth: 240 }}>
             <FieldLabel text="Підстанція" />
-            <select style={styles.input} value={substationFilter} onChange={(e) => setSubstationFilter(e.target.value)}>
+            <select style={styles.select} value={substationFilter} onChange={(e) => setSubstationFilter(e.target.value)}>
               <option value="">Усі (за обраним підприємством)</option>
               {substationsForSelect.map((s) => (
                 <option key={s.id} value={String(s.id)}>
@@ -321,7 +321,7 @@ export default function NetworkPage() {
       </div>
 
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0 }}>Підстанції</h3>
+        <h3 style={styles.cardTitle}>Підстанції</h3>
         <PaginationBar
           label="Підстанції"
           page={pageSub}
@@ -380,7 +380,7 @@ export default function NetworkPage() {
       </div>
 
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0 }}>Трансформатори</h3>
+        <h3 style={styles.cardTitle}>Трансформатори</h3>
         <PaginationBar
           label="Трансформатори"
           page={pageTr}
@@ -440,7 +440,7 @@ export default function NetworkPage() {
       </div>
 
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0 }}>Лінії електропередачі</h3>
+        <h3 style={styles.cardTitle}>Лінії електропередачі</h3>
         <PaginationBar
           label="Лінії"
           page={pageLn}

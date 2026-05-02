@@ -142,8 +142,9 @@ export default function MetersPage() {
   }, [meters]);
 
   return (
+    <div style={styles.page}>
     <div style={styles.card}>
-      <h3 style={{ marginTop: 0 }}>Лічильники</h3>
+      <h3 style={styles.cardTitle}>Лічильники</h3>
       <p style={styles.muted}>
         Реєстр лічильників у контексті підприємства, об&apos;єкта та електричної топології (підстанція → лінія). Редагування — у
         Адмін панелі.
@@ -160,11 +161,11 @@ export default function MetersPage() {
         </div>
       </div>
 
-      <div style={{ ...styles.toolbar, marginBottom: 8, alignItems: "flex-end" }}>
+      <div style={styles.toolbarEnd}>
         <button type="button" style={styles.buttonSecondary} onClick={() => load()}>
           Оновити
         </button>
-        <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ flex: "1 1 200px", minWidth: 200 }}>
           <FieldLabel text="Пошук" />
           <input
             style={styles.input}
@@ -175,7 +176,7 @@ export default function MetersPage() {
         </div>
         <div style={{ minWidth: 200 }}>
           <FieldLabel text="Підприємство" />
-          <select style={styles.input} value={enterpriseFilter} onChange={(e) => setEnterpriseFilter(e.target.value)}>
+          <select style={styles.select} value={enterpriseFilter} onChange={(e) => setEnterpriseFilter(e.target.value)}>
             <option value="">Усі</option>
             {enterprises.map((e) => (
               <option key={e.id} value={String(e.id)}>
@@ -186,7 +187,7 @@ export default function MetersPage() {
         </div>
         <div style={{ minWidth: 160 }}>
           <FieldLabel text="Статус" />
-          <select style={styles.input} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <select style={styles.select} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">Усі</option>
             <option value="active">Активний</option>
             <option value="inactive">Неактивний</option>
@@ -273,6 +274,7 @@ export default function MetersPage() {
       <p style={{ ...styles.muted, marginTop: 10, marginBottom: 0 }}>
         Показано {filtered.length} з {meters.length} лічильників.
       </p>
+    </div>
     </div>
   );
 }

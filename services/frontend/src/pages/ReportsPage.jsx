@@ -231,10 +231,10 @@ export default function ReportsPage() {
   const ctx = lineData?.context;
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div style={styles.page}>
       <Toasts items={toasts} />
       <div style={styles.card}>
-        <h2 style={{ marginTop: 0 }}>Звіти: навантаження по лінії</h2>
+        <h2 style={styles.pageTitle}>Звіти: навантаження по лінії</h2>
         <p style={styles.muted}>
           Аналітичний dashboard для оператора: лінія → об’єкти → лічильники, KPI, графіки та сповіщення.
         </p>

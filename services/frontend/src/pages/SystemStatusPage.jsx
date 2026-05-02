@@ -148,11 +148,11 @@ export default function SystemStatusPage() {
   const dbOk = ready?.status === "готово";
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={styles.page}>
       <Toasts items={toasts} />
 
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0 }}>Стан системи</h3>
+        <h3 style={styles.cardTitle}>Стан системи</h3>
         <p style={styles.muted}>
           Перевірка доступності API та з&apos;єднання з базою, моніторинг проблем якості даних після валідації показів.
         </p>
@@ -192,12 +192,12 @@ export default function SystemStatusPage() {
       </div>
 
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0 }}>Проблеми валідації</h3>
+        <h3 style={styles.cardTitle}>Проблеми валідації</h3>
         <p style={styles.muted}>
           Записи з прапорцем не OK (останні до {ISSUES_LIMIT} з БД). Після зміни показів натисніть «Запустити валідацію» на сторінці показів або тут.
         </p>
 
-        <div style={{ ...styles.toolbar, alignItems: "flex-end", flexWrap: "wrap", gap: 10 }}>
+        <div style={styles.toolbarEnd}>
           <div style={{ flex: "1 1 200px", minWidth: 180 }}>
             <FieldLabel text="Пошук" />
             <input
@@ -209,7 +209,7 @@ export default function SystemStatusPage() {
           </div>
           <div style={{ minWidth: 160 }}>
             <FieldLabel text="Рівень" />
-            <select style={styles.input} value={flagFilter} onChange={(e) => setFlagFilter(e.target.value)}>
+            <select style={styles.select} value={flagFilter} onChange={(e) => setFlagFilter(e.target.value)}>
               <option value="">Усі</option>
               <option value="WARN">Попередження</option>
               <option value="BAD">Критично</option>
@@ -217,21 +217,7 @@ export default function SystemStatusPage() {
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            marginTop: 12,
-            marginBottom: 8,
-            padding: "10px 12px",
-            background: "#f8fafc",
-            borderRadius: 8,
-            border: "1px solid #e2e8f0"
-          }}
-        >
+        <div style={{ ...styles.paginationBar, marginTop: 8 }}>
           <span style={{ ...styles.muted, fontSize: 13 }}>
             Усього проблем у вибірці: {filtered.length}
             {issues.length >= ISSUES_LIMIT ? ` (обмеження завантаження ${ISSUES_LIMIT})` : ""}
@@ -239,7 +225,7 @@ export default function SystemStatusPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ ...styles.muted, fontSize: 13 }}>На сторінці</span>
             <select
-              style={{ ...styles.input, maxWidth: 88 }}
+              style={{ ...styles.select, maxWidth: 88 }}
               value={String(pageSize)}
               onChange={(e) => setPageSize(Number(e.target.value))}
             >

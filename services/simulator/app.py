@@ -1,4 +1,11 @@
+"""
+Симулятор навантаження: scenario.yaml + ENV, згладжування, offline/spike, ретраї POST.
+"""
+
+from __future__ import annotations
+
 import asyncio
+import logging
 import os
 import random
 from datetime import datetime, timezone
@@ -6,21 +13,27 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
+
+from config_loader import SimConfig, load_scenario
+from generator import MeterState, sample_interval_kwh
+from poster import post_reading
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+log = logging.getLogger("simulator")
 
 API_URL = os.getenv("API_URL", "http://backend:8000")
 _meter_ids_env = os.getenv("METER_IDS", "").strip()
 METER_IDS = [int(x) for x in _meter_ids_env.split(",") if x]
-INTERVAL_SECONDS = float(os.getenv("INTERVAL_SECONDS", "2"))
-METERS_REFRESH_SECONDS = float(os.getenv("METERS_REFRESH_SECONDS", "30"))
-# normal | peak | critical | offline
-SIM_PROFILE = os.getenv("SIM_PROFILE", "normal").strip().lower()
-SIM_MULTIPLIER = float(os.getenv("SIM_MULTIPLIER", "1"))
 
-app = FastAPI(title="simulator-service")
-generated = Counter("simulated_readings_total", "Total simulated readings")
+app = FastAPI(title="simulator-service", version="2.0.0")
 _running = False
+_meter_states: dict[int, MeterState] = {}
+_current_cfg: SimConfig | None = None
 
 
 def _is_meter_active(meter: dict[str, Any]) -> bool:
@@ -56,121 +69,80 @@ async def _fetch_active_meters(client: httpx.AsyncClient) -> list[dict[str, Any]
         meters = response.json()
         if not isinstance(meters, list):
             return []
-        active_meters: list[dict[str, Any]] = []
+        active: list[dict[str, Any]] = []
         for meter in meters:
             if not isinstance(meter, dict):
                 continue
             if not _is_meter_active(meter):
                 continue
-            meter_info = _normalize_meter_info(meter)
-            if meter_info is not None:
-                active_meters.append(meter_info)
+            info = _normalize_meter_info(meter)
+            if info is not None:
+                active.append(info)
         if METER_IDS:
             allowed = set(METER_IDS)
-            active_meters = [meter for meter in active_meters if meter["id"] in allowed]
-        return active_meters
-    except Exception:
+            active = [m for m in active if m["id"] in allowed]
+        return active
+    except Exception as e:
+        log.warning("Не вдалося отримати /meters: %s", e)
         return []
 
 
-def _profile_factor() -> float:
-    m = max(SIM_MULTIPLIER, 0.01)
-    if SIM_PROFILE == "offline":
-        return 0.0
-    if SIM_PROFILE == "peak":
-        return 1.6 * m
-    if SIM_PROFILE == "critical":
-        return 2.4 * m
-    return 1.0 * m
+def _sync_states(active_ids: set[int]) -> None:
+    for k in list(_meter_states.keys()):
+        if k not in active_ids:
+            del _meter_states[k]
+    for mid in active_ids:
+        _meter_states.setdefault(mid, MeterState())
 
 
-def _electricity_range(hour: int, meter_role: str, zone_name: str) -> tuple[float, float]:
-    is_day = 7 <= hour < 22
-    if "main" in meter_role or "main" in zone_name:
-        return (70.0, 150.0) if is_day else (35.0, 90.0)
-    if "lighting" in meter_role or "light" in zone_name:
-        return (3.0, 14.0) if is_day else (6.0, 24.0)
-    if "hvac" in meter_role or "climate" in zone_name:
-        return (18.0, 55.0) if is_day else (10.0, 28.0)
-    if (
-        "weld" in meter_role
-        or "weld" in zone_name
-        or "workshop" in meter_role
-        or "workshop" in zone_name
-        or "production" in meter_role
-        or "production" in zone_name
-    ):
-        # Ціль: великі зони ~100-200 кВт·год за годину (при профілі normal).
-        return (100.0, 200.0) if is_day else (45.0, 120.0)
-    return (12.0, 42.0) if is_day else (6.0, 22.0)
-
-
-def _base_range_for_meter(meter: dict[str, Any], ts: datetime) -> tuple[float, float]:
-    meter_type = str(meter.get("meter_type", "electricity"))
-    meter_role = str(meter.get("meter_role", "submeter"))
-    zone_name = str(meter.get("zone_name", "default"))
-    hour = ts.hour
-
-    if meter_type == "electricity":
-        return _electricity_range(hour, meter_role, zone_name)
-    if meter_type == "water":
-        return (0.2, 1.8) if 6 <= hour < 23 else (0.05, 0.6)
-    if meter_type == "gas":
-        return (0.3, 2.2) if 6 <= hour < 23 else (0.1, 1.1)
-    if meter_type == "heat":
-        cold_month_factor = 1.4 if ts.month in {11, 12, 1, 2, 3} else 1.0
-        return (0.8 * cold_month_factor, 4.5 * cold_month_factor)
-    return (2.0, 10.0)
-
-
-def _sample_kwh(meter: dict[str, Any], ts: datetime) -> float | None:
-    """Генерує реалістичні покази з урахуванням типу/ролі лічильника."""
-    profile = _profile_factor()
-    if profile <= 0:
-        return None
-
-    low, high = _base_range_for_meter(meter, ts)
-    # low/high трактуємо як миттєву потужність у kW.
-    power_kw = random.uniform(low, high) * profile
-
-    # М'який шум + рідкісні локальні піки.
-    noise = random.uniform(0.9, 1.1)
-    power_kw *= noise
-    if random.random() < 0.02:
-        power_kw *= random.uniform(1.15, 1.45)
-
-    # Конвертація в енергію за поточний інтервал: kWh = kW * (seconds / 3600).
-    interval_hours = max(INTERVAL_SECONDS, 0.1) / 3600.0
-    value_kwh = power_kw * interval_hours
-    return round(max(value_kwh, 0.0001), 4)
-
-
-async def loop_send():
-    async with httpx.AsyncClient(timeout=10) as client:
-        meters: list[dict[str, Any]] = []
-        last_refresh_at = 0.0
+async def simulation_loop() -> None:
+    global _current_cfg
+    meters: list[dict[str, Any]] = []
+    last_m_refresh = 0.0
+    async with httpx.AsyncClient(timeout=15.0) as client:
         while _running:
-            now = asyncio.get_running_loop().time()
-            if (not meters) or (now - last_refresh_at >= METERS_REFRESH_SECONDS):
+            cfg = load_scenario()
+            _current_cfg = cfg
+            now_loop = asyncio.get_running_loop().time()
+            if (not meters) or (now_loop - last_m_refresh >= cfg.meters_refresh_seconds):
                 meters = await _fetch_active_meters(client)
-                last_refresh_at = now
+                last_m_refresh = now_loop
+                _sync_states({m["id"] for m in meters})
+                log.info("Оновлено список лічильників: %s активних", len(meters))
+
+            now_mono = asyncio.get_running_loop().time()
+            ts = datetime.now(timezone.utc)
+
             for meter in meters:
-                ts = datetime.now(timezone.utc)
-                kwh = _sample_kwh(meter, ts)
+                mid = int(meter["id"])
+                st = _meter_states[mid]
+                kwh, _new_st = sample_interval_kwh(meter, ts, cfg.interval_seconds, cfg, st, now_mono)
+                _meter_states[mid] = _new_st
                 if kwh is None:
                     continue
                 payload = {
-                    "meter_id": meter["id"],
+                    "meter_id": mid,
                     "ts": ts.isoformat(),
                     "value_kwh": kwh,
                     "source": "simulator",
                 }
-                try:
-                    await client.post(f"{API_URL}/readings", json=payload)
-                    generated.inc()
-                except Exception:
-                    pass
-            await asyncio.sleep(INTERVAL_SECONDS)
+                await post_reading(client, API_URL, payload, cfg)
+
+            j = min(0.45, max(0.0, cfg.jitter_fraction))
+            base = cfg.interval_seconds
+            factor = random.uniform(1.0 - j, 1.0 + j) if j > 0 else 1.0
+            await asyncio.sleep(max(0.05, base * factor))
+
+
+@app.on_event("startup")
+async def _startup():
+    global _running
+    log.info("Симулятор v2: scenario profile=%s", load_scenario().global_profile)
+    if os.getenv("SIM_AUTOSTART", "").strip().lower() in ("1", "true", "yes"):
+        if not _running:
+            _running = True
+            asyncio.create_task(simulation_loop())
+            log.info("SIM_AUTOSTART: цикл симуляції запущено автоматично")
 
 
 @app.post("/simulator/start")
@@ -178,12 +150,15 @@ async def start():
     global _running
     if not _running:
         _running = True
-        asyncio.create_task(loop_send())
+        asyncio.create_task(simulation_loop())
+    cfg = _current_cfg or load_scenario()
     return {
         "running": _running,
-        "profile": SIM_PROFILE,
-        "multiplier": SIM_MULTIPLIER,
+        "profile": cfg.global_profile,
+        "multiplier": cfg.multiplier,
+        "interval_seconds": cfg.interval_seconds,
         "meters_source": "database_active_only",
+        "config_path": os.getenv("SIM_CONFIG_PATH") or "(bundled scenario.yaml)",
     }
 
 
@@ -192,6 +167,31 @@ async def stop():
     global _running
     _running = False
     return {"running": _running}
+
+
+@app.post("/simulator/reload-config")
+async def reload_config():
+    """Перечитати scenario.yaml з диска (наступний цикл також підхопить)."""
+    cfg = load_scenario()
+    global _current_cfg
+    _current_cfg = cfg
+    return {
+        "global_profile": cfg.global_profile,
+        "multiplier": cfg.multiplier,
+        "interval_seconds": cfg.interval_seconds,
+        "smoothing_alpha": cfg.smoothing_alpha,
+    }
+
+
+@app.get("/simulator/status")
+def status():
+    cfg = _current_cfg or load_scenario()
+    return {
+        "running": _running,
+        "global_profile": cfg.global_profile,
+        "interval_seconds": cfg.interval_seconds,
+        "tracked_meters_state": len(_meter_states),
+    }
 
 
 @app.get("/health")

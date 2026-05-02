@@ -234,15 +234,16 @@ export default function ReadingsPage() {
   };
 
   return (
-    <div style={styles.grid2}>
+    <div style={styles.page}>
       <Toasts items={toasts} />
+      <div style={styles.grid2}>
       <div style={styles.card}>
-        <h3>Додати показ</h3>
+        <h3 style={styles.cardTitle}>Додати показ</h3>
         <form onSubmit={submit}>
-          <p>
+          <p style={{ margin: "0 0 12px 0" }}>
             <FieldLabel text="Об'єкт" />
             <select
-              style={{ ...styles.input, ...(errors.site_id ? styles.inputError : {}) }}
+              style={{ ...styles.select, ...(errors.site_id ? styles.inputError : {}) }}
               value={form.site_id}
               onChange={(e) => {
                 const nextSiteId = e.target.value;
@@ -259,10 +260,10 @@ export default function ReadingsPage() {
             </select>
             <FieldError text={errors.site_id} />
           </p>
-          <p>
+          <p style={{ margin: "0 0 12px 0" }}>
             <FieldLabel text="Лічильник" />
             <select
-              style={{ ...styles.input, ...(errors.meter_id ? styles.inputError : {}) }}
+              style={{ ...styles.select, ...(errors.meter_id ? styles.inputError : {}) }}
               value={form.meter_id}
               onChange={(e) => setForm({ ...form, meter_id: e.target.value })}
               required
@@ -275,7 +276,7 @@ export default function ReadingsPage() {
             </select>
             <FieldError text={errors.meter_id} />
           </p>
-          <p>
+          <p style={{ margin: "0 0 12px 0" }}>
             <FieldLabel text="Значення, кВт·год" />
             <input
               style={{ ...styles.input, ...(errors.value_kwh ? styles.inputError : {}) }}
@@ -286,7 +287,7 @@ export default function ReadingsPage() {
             />
             <FieldError text={errors.value_kwh} />
           </p>
-          <p>
+          <p style={{ margin: "0 0 12px 0" }}>
             <FieldLabel text="Джерело даних" />
             <input
               style={{ ...styles.input, ...(errors.source ? styles.inputError : {}) }}
@@ -320,7 +321,7 @@ export default function ReadingsPage() {
       </div>
 
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0 }}>Останні покази</h3>
+        <h3 style={styles.cardTitle}>Останні покази</h3>
         <p style={styles.muted}>
           Завантажується до {READINGS_LIMIT} останніх записів з урахуванням часу показу (не часу збереження в БД).
         </p>
@@ -340,7 +341,7 @@ export default function ReadingsPage() {
           </div>
         </div>
 
-        <div style={{ ...styles.toolbar, alignItems: "flex-end", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ ...styles.toolbarEnd, marginBottom: 12 }}>
           <div style={{ flex: "1 1 200px", minWidth: 180 }}>
             <FieldLabel text="Пошук" />
             <input
@@ -352,7 +353,7 @@ export default function ReadingsPage() {
           </div>
           <div style={{ minWidth: 160 }}>
             <FieldLabel text="Підприємство" />
-            <select style={styles.input} value={enterpriseFilter} onChange={(e) => onEnterpriseFilter(e.target.value)}>
+            <select style={styles.select} value={enterpriseFilter} onChange={(e) => onEnterpriseFilter(e.target.value)}>
               <option value="">Усі</option>
               {enterprises.map((e) => (
                 <option key={e.id} value={String(e.id)}>
@@ -363,7 +364,7 @@ export default function ReadingsPage() {
           </div>
           <div style={{ minWidth: 160 }}>
             <FieldLabel text="Об'єкт" />
-            <select style={styles.input} value={siteFilter} onChange={(e) => onSiteFilter(e.target.value)}>
+            <select style={styles.select} value={siteFilter} onChange={(e) => onSiteFilter(e.target.value)}>
               <option value="">Усі</option>
               {sitesForFilter.map((s) => (
                 <option key={s.id} value={String(s.id)}>
@@ -374,7 +375,7 @@ export default function ReadingsPage() {
           </div>
           <div style={{ minWidth: 180 }}>
             <FieldLabel text="Лічильник" />
-            <select style={styles.input} value={meterFilter} onChange={(e) => setMeterFilter(e.target.value)}>
+            <select style={styles.select} value={meterFilter} onChange={(e) => setMeterFilter(e.target.value)}>
               <option value="">Усі</option>
               {metersForFilter.map((m) => (
                 <option key={m.id} value={String(m.id)}>
@@ -385,7 +386,7 @@ export default function ReadingsPage() {
           </div>
           <div style={{ minWidth: 140 }}>
             <FieldLabel text="Джерело" />
-            <select style={styles.input} value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
+            <select style={styles.select} value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
               <option value="">Усі</option>
               {sourceOptions.map((src) => (
                 <option key={src} value={src}>
@@ -402,24 +403,11 @@ export default function ReadingsPage() {
           </button>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            marginBottom: 10,
-            padding: "10px 12px",
-            background: "#f8fafc",
-            borderRadius: 8,
-            border: "1px solid #e2e8f0"
-          }}
-        >
+        <div style={{ ...styles.paginationBar, marginTop: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <span style={{ ...styles.muted, fontSize: 13 }}>На сторінці</span>
             <select
-              style={{ ...styles.input, maxWidth: 88, padding: "6px 8px" }}
+              style={{ ...styles.select, maxWidth: 88, padding: "6px 8px" }}
               value={String(pageSize)}
               onChange={(e) => setPageSize(Number(e.target.value))}
             >
@@ -511,6 +499,7 @@ export default function ReadingsPage() {
             </tbody>
           </table>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -15,9 +15,9 @@ export default function AdminLayout() {
     <div style={styles.app}>
       <header style={styles.header}>
         <div style={styles.container}>
-          <div style={styles.headerCard}>
+          <div style={styles.headerStack}>
             <h1 style={styles.title}>Адміністративна панель</h1>
-            <div style={styles.nav}>
+            <nav style={styles.nav} aria-label="Навігація адміна">
               {links.map(([label, path]) => (
                 <NavLink
                   key={path}
@@ -31,7 +31,7 @@ export default function AdminLayout() {
                   {label}
                 </NavLink>
               ))}
-            </div>
+            </nav>
           </div>
         </div>
       </header>

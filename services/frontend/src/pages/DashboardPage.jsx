@@ -112,11 +112,11 @@ export default function DashboardPage() {
   }, [data.readings, points]);
 
   return (
-    <>
+    <div style={styles.page}>
       <Toasts items={toasts} />
 
       <div style={styles.card}>
-        <h2 style={{ marginTop: 0, marginBottom: 8 }}>Дашборд</h2>
+        <h2 style={styles.pageTitle}>Дашборд</h2>
         <p style={{ ...styles.muted, marginTop: 0 }}>
           Огляд обліку: ключові показники, останній потік показів і топ об&apos;єктів за даними денних агрегатів.
         </p>
@@ -126,7 +126,7 @@ export default function DashboardPage() {
           </button>
           <div>
             <FieldLabel text="Точок на графіку" />
-            <select style={{ ...styles.input, width: 100 }} value={points} onChange={(e) => setPoints(Number(e.target.value))}>
+            <select style={{ ...styles.select, width: 100, maxWidth: 120 }} value={points} onChange={(e) => setPoints(Number(e.target.value))}>
               <option value={24}>24</option>
               <option value={48}>48</option>
               <option value={96}>96</option>
@@ -172,14 +172,14 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div style={{ ...styles.card, marginTop: 12, borderLeft: "4px solid #0ea5e9", maxWidth: 420 }}>
+      <div style={{ ...styles.card, borderLeft: "4px solid #0ea5e9", maxWidth: 480 }}>
         <div style={styles.muted}>Сума по денних агрегатах</div>
         <div style={{ fontSize: 20, fontWeight: 700 }}>{fmtKwh(dailySumKwh)}</div>
         <div style={{ ...styles.muted, fontSize: 12, marginTop: 4 }}>усі доступні рядки daily</div>
       </div>
 
-      <div style={{ ...styles.card, marginTop: 12, minHeight: 340 }}>
-        <h3 style={{ marginTop: 0 }}>Останні покази (кВт·год за інтервал)</h3>
+      <div style={{ ...styles.card, minHeight: 340 }}>
+        <h3 style={styles.cardTitle}>Останні покази (кВт·год за інтервал)</h3>
         <p style={{ ...styles.muted, marginTop: 0 }}>
           Значення з сирих показів, останні {Math.min(points, data.readings.length)} точок у хронологічному порядку на графіку.
         </p>
@@ -198,8 +198,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <div style={{ ...styles.card, marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}>Топ об&apos;єктів за споживанням (денні агрегати)</h3>
+      <div style={styles.card}>
+        <h3 style={styles.cardTitle}>Топ об&apos;єктів за споживанням (денні агрегати)</h3>
         {topSites.length === 0 ? (
           <p style={styles.muted}>Немає денних агрегатів — перебудуйте звіти або зачекайте на дані.</p>
         ) : (
@@ -222,6 +222,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

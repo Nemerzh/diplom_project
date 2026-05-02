@@ -143,9 +143,10 @@ export default function AlertsPage() {
   const sevOrder = ["critical", "high", "medium", "warning", "low"];
 
   return (
-    <div style={styles.card}>
+    <div style={styles.page}>
       <Toasts items={toasts} />
-      <h3 style={{ marginTop: 0 }}>Сповіщення</h3>
+    <div style={styles.card}>
+      <h3 style={styles.cardTitle}>Сповіщення</h3>
       <p style={styles.muted}>Правила налаштовуються в Адмін панелі. Тут — перегляд, фільтри та закриття інцидентів.</p>
 
       {summary && (
@@ -191,7 +192,7 @@ export default function AlertsPage() {
       <div style={{ ...styles.grid4, marginBottom: 12 }}>
         <div>
           <FieldLabel text="Підприємство" />
-          <select style={styles.input} value={enterpriseId} onChange={(e) => onEnterpriseChange(e.target.value)}>
+          <select style={styles.select} value={enterpriseId} onChange={(e) => onEnterpriseChange(e.target.value)}>
             <option value="">Усі</option>
             {enterprises.map((e) => (
               <option key={e.id} value={String(e.id)}>
@@ -213,7 +214,7 @@ export default function AlertsPage() {
         </div>
         <div>
           <FieldLabel text="Лічильник" />
-          <select style={styles.input} value={meterId} onChange={(e) => setMeterId(e.target.value)}>
+          <select style={styles.select} value={meterId} onChange={(e) => setMeterId(e.target.value)}>
             <option value="">Усі</option>
             {metersFiltered.map((m) => (
               <option key={m.id} value={String(m.id)}>
@@ -224,7 +225,7 @@ export default function AlertsPage() {
         </div>
         <div>
           <FieldLabel text="Критичність" />
-          <select style={styles.input} value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)}>
+          <select style={styles.select} value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)}>
             <option value="">Усі рівні</option>
             <option value="critical">Критична</option>
             <option value="high">Висока</option>
@@ -313,6 +314,7 @@ export default function AlertsPage() {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 }

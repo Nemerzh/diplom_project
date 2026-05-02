@@ -204,10 +204,11 @@ export default function AdminAlertRulesPage() {
   }, [rules, enterpriseFilter, sitesFiltered, meterById]);
 
   return (
-    <div style={styles.grid2}>
+    <div style={styles.page}>
       <Toasts items={toasts} />
+      <div style={styles.grid2}>
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0 }}>{editingId ? `Редагувати правило #${editingId}` : "Нове правило сповіщення"}</h3>
+        <h3 style={styles.cardTitle}>{editingId ? `Редагувати правило #${editingId}` : "Нове правило сповіщення"}</h3>
         <p style={styles.muted}>
           Тип умови: лише <strong>перевищення суми споживання</strong> по денних агрегатах (<code>threshold</code>). Інші типи
           можна додати пізніше в логіці перевірки.
@@ -263,7 +264,7 @@ export default function AdminAlertRulesPage() {
             <p>
               <FieldLabel text="Об'єкт" />
               <select
-                style={{ ...styles.input, ...(errors.scope ? styles.inputError : {}) }}
+                style={{ ...styles.select, ...(errors.scope ? styles.inputError : {}) }}
                 value={form.site_id}
                 onChange={(e) => setForm({ ...form, site_id: e.target.value, meter_id: scope === "meter" ? form.meter_id : "" })}
                 disabled={scope === "meter"}
@@ -282,7 +283,7 @@ export default function AdminAlertRulesPage() {
             <p>
               <FieldLabel text="Лічильник" />
               <select
-                style={{ ...styles.input, ...(errors.meter_id ? styles.inputError : {}) }}
+                style={{ ...styles.select, ...(errors.meter_id ? styles.inputError : {}) }}
                 value={form.meter_id}
                 onChange={(e) => setForm({ ...form, meter_id: e.target.value })}
               >
@@ -300,7 +301,7 @@ export default function AdminAlertRulesPage() {
           <p>
             <FieldLabel text="Період суми, днів" />
             <select
-              style={{ ...styles.input, ...(errors.window_days ? styles.inputError : {}) }}
+              style={{ ...styles.select, ...(errors.window_days ? styles.inputError : {}) }}
               value={String(form.window_days)}
               onChange={(e) => setForm({ ...form, window_days: Number(e.target.value) })}
             >
@@ -328,7 +329,7 @@ export default function AdminAlertRulesPage() {
 
           <p>
             <FieldLabel text="Критичність" />
-            <select style={styles.input} value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}>
+            <select style={styles.select} value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}>
               {SEVERITY_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -371,11 +372,11 @@ export default function AdminAlertRulesPage() {
       </div>
 
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0 }}>Правила</h3>
-        <div style={{ ...styles.toolbar, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 10 }}>
+        <h3 style={styles.cardTitle}>Правила</h3>
+        <div style={styles.toolbarEnd}>
           <div style={{ minWidth: 220 }}>
             <FieldLabel text="Фільтр: підприємство" />
-            <select style={styles.input} value={enterpriseFilter} onChange={(e) => setEnterpriseFilter(e.target.value)}>
+            <select style={styles.select} value={enterpriseFilter} onChange={(e) => setEnterpriseFilter(e.target.value)}>
               <option value="">Усі</option>
               {enterprises.map((e) => (
                 <option key={e.id} value={String(e.id)}>
@@ -402,6 +403,7 @@ export default function AdminAlertRulesPage() {
             </div>
           ])}
         />
+      </div>
       </div>
     </div>
   );
