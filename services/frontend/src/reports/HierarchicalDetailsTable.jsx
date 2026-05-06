@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DataTable, styles } from "../ui.jsx";
 import { StatusBadge, meterStatusVariant } from "./ReportBadges.jsx";
+import { formatDateTime } from "../utils/datetime.js";
 
 export default function HierarchicalDetailsTable({ hierarchyTable, metersBySite }) {
   const [openSite, setOpenSite] = useState(null);
@@ -39,7 +40,7 @@ export default function HierarchicalDetailsTable({ hierarchyTable, metersBySite 
               m.meter_role,
               Number(m.consumption_kwh).toFixed(2),
               `${Number(m.share_percent).toFixed(1)}%`,
-              m.last_seen_at ? new Date(m.last_seen_at).toLocaleString("uk-UA") : "—",
+              formatDateTime(m.last_seen_at),
               <StatusBadge key={m.meter_id} label={m.status} variant={meterStatusVariant(m.status)} />
             ])}
           />

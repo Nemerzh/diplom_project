@@ -43,6 +43,6 @@
   ],
   "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
-  "timezone": "browser",
+  "timezone": "Europe/Kyiv",
   "refresh": "10s"
 }

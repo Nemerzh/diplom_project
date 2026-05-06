@@ -1,4 +1,5 @@
 import { styles } from "../ui.jsx";
+import { formatDateTime } from "../utils/datetime.js";
 
 function fmt(v) {
   return Number(v || 0).toLocaleString("uk-UA", { maximumFractionDigits: 2 });
@@ -11,7 +12,7 @@ function fmtPct(v) {
 
 export default function ReportKpis({ kpi, context }) {
   if (!kpi) return null;
-  const peakLabel = kpi.peak_bucket ? new Date(kpi.peak_bucket).toLocaleString("uk-UA") : "—";
+  const peakLabel = formatDateTime(kpi.peak_bucket);
   return (
     <div style={styles.grid4}>
       <div style={styles.card}>

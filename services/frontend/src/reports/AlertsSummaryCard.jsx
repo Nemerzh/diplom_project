@@ -1,5 +1,6 @@
 import { DataTable, styles } from "../ui.jsx";
 import { StatusBadge } from "./ReportBadges.jsx";
+import { formatDateTime } from "../utils/datetime.js";
 
 function sevVariant(code) {
   const c = String(code || "").toLowerCase();
@@ -36,7 +37,7 @@ export default function AlertsSummaryCard({ alerts, summaryBySeverity }) {
       <DataTable
         columns={["Час", "Вузол", "Рівень", "Повідомлення"]}
         rows={(alerts || []).slice(0, 25).map((a) => [
-          new Date(a.created_at).toLocaleString("uk-UA"),
+          formatDateTime(a.created_at),
           a.node,
           <StatusBadge key={a.id} label={a.severity} variant={sevVariant(a.severity_code)} />,
           a.message

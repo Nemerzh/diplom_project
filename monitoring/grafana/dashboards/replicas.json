@@ -1,0 +1,87 @@
+{
+  "id": null,
+  "title": "Replicas: scaling, failover, rolling updates",
+  "schemaVersion": 39,
+  "version": 2,
+  "tags": ["experiments", "diploma"],
+  "panels": [
+    {
+      "type": "row",
+      "title": "Kubernetes (kind)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "K8s: бажано vs готово (per Deployment у ns=energy)",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 1 },
+      "description": "kube-state-metrics: spec replicas (бажано), available replicas (реально готових)",
+      "targets": [
+        {
+          "expr": "kube_deployment_spec_replicas{namespace=\"energy\"}",
+          "legendFormat": "spec {{deployment}}"
+        },
+        {
+          "expr": "kube_deployment_status_replicas_available{namespace=\"energy\"}",
+          "legendFormat": "available {{deployment}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "K8s: pod phase per app",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "targets": [
+        {
+          "expr": "sum by (namespace, phase) (kube_pod_status_phase{namespace=\"energy\"})",
+          "legendFormat": "{{phase}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "K8s: rollout — кількість «unavailable» реплік (downtime)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "targets": [
+        {
+          "expr": "kube_deployment_status_replicas_unavailable{namespace=\"energy\"}",
+          "legendFormat": "{{deployment}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Docker Swarm / Compose",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Swarm: живі репліки на сервіс (cAdvisor + container_label)",
+      "description": "Лічимо контейнери, які cAdvisor бачив за останні 30с, групуючи по docker label com.docker.swarm.service.name.",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 19 },
+      "targets": [
+        {
+          "expr": "count by (container_label_com_docker_swarm_service_name) (container_last_seen{container_label_com_docker_swarm_service_name=~\"energy_.*\"} > (time() - 30))",
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Compose: живі репліки на сервіс (для локального docker-compose)",
+      "description": "Те саме, але для docker-compose label com.docker.compose.service.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
+      "targets": [
+        {
+          "expr": "count by (container_label_com_docker_compose_service) (container_last_seen{container_label_com_docker_compose_service=~\".+\"} > (time() - 30))",
+          "legendFormat": "{{container_label_com_docker_compose_service}}"
+        }
+      ]
+    }
+  ],
+  "templating": { "list": [] },
+  "time": { "from": "now-30m", "to": "now" },
+  "timezone": "Europe/Kyiv",
+  "refresh": "5s"
+}

@@ -1,15 +1,21 @@
 import { useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FieldLabel, styles } from "../ui.jsx";
+import { formatDate, parseUtc } from "../utils/datetime.js";
+
+function dayKey(value) {
+  const d = parseUtc(value);
+  return d ? d.toISOString().slice(0, 10) : String(value ?? "");
+}
 
 function mergeDaily(aDaily, bDaily) {
   const map = new Map();
   for (const r of aDaily || []) {
-    const k = new Date(r.day).toISOString().slice(0, 10);
+    const k = dayKey(r.day);
     map.set(k, { day: k, a: Number(r.total_kwh || 0), b: 0 });
   }
   for (const r of bDaily || []) {
-    const k = new Date(r.day).toISOString().slice(0, 10);
+    const k = dayKey(r.day);
     const cur = map.get(k) || { day: k, a: 0, b: 0 };
     cur.b = Number(r.total_kwh || 0);
     map.set(k, cur);
@@ -26,7 +32,7 @@ export default function SiteComparisonPanel({ sitesDistribution, onCompare, comp
     if (!compare) return [];
     return mergeDaily(compare.site_a?.daily, compare.site_b?.daily).map((r) => ({
       ...r,
-      label: new Date(r.day).toLocaleDateString("uk-UA")
+      label: formatDate(r.day)
     }));
   }, [compare]);
 

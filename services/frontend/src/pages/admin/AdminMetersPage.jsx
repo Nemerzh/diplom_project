@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createMeter, deleteMeter, getEnterprises, getLines, getMeters, getSites, updateMeter } from "../../api";
 import { DataTable, FieldError, FieldLabel, Toasts, styles } from "../../ui.jsx";
+import { formatDateTime } from "../../utils/datetime.js";
 
 /** Узгоджено з операторською сторінкою «Лічильники» та типовими значеннями в БД */
 const ROLE_LABELS = {
@@ -29,13 +30,7 @@ const STATUS_OPTIONS = [
 ];
 
 function fmtDt(iso) {
-  if (!iso) return "—";
-  try {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? String(iso) : d.toLocaleString("uk-UA", { dateStyle: "short", timeStyle: "short" });
-  } catch {
-    return String(iso);
-  }
+  return formatDateTime(iso);
 }
 
 const DEFAULT_ZONE_TEMPLATES = [

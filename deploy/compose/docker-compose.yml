@@ -8,6 +8,9 @@ services:
       POSTGRES_DB: energy
       POSTGRES_USER: energy
       POSTGRES_PASSWORD: energy
+      # БД зберігаємо в UTC (timestamp without time zone з UTC-семантикою),
+      # тут TZ — лише для людино-читних логів postgres у Київському часі.
+      TZ: Europe/Kyiv
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,6 +25,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://energy:energy@postgres:5432/energy
       CORS_ORIGINS: http://localhost,http://localhost:8081,http://127.0.0.1:8081,http://localhost:5173,http://frontend
+      TZ: Europe/Kyiv
     depends_on:
       postgres:
         condition: service_healthy
@@ -29,12 +33,17 @@ services:
         condition: service_completed_successfully
     ports:
       - "8000:8000"
+    volumes:
+      # Тести й конфіг pytest з репозиторію (образ міг бути зібраний до їх появи)
+      - ../../services/backend/tests:/app/tests:ro
+      - ../../services/backend/pytest.ini:/app/pytest.ini:ro
 
   backend-migrate:
     build:
       context: ../../services/backend
     environment:
       DATABASE_URL: postgresql+psycopg2://energy:energy@postgres:5432/energy
+      TZ: Europe/Kyiv
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,6 +55,8 @@ services:
       context: ../../services/frontend
       args:
         VITE_API_BASE_URL: http://localhost:8000
+    environment:
+      TZ: Europe/Kyiv
     depends_on:
       - backend
     ports:
@@ -56,16 +67,57 @@ services:
       context: ../../services/simulator
     environment:
       API_URL: http://backend:8000
+      # v2 simulator config
+      SIM_AUTOSTART: "1"
+      SIM_CONFIG_PATH: /app/config/scenario.yaml
+      LOG_LEVEL: INFO
+      # Backward-compatible overrides (can be omitted if scenario.yaml defines all)
       INTERVAL_SECONDS: "2"
       SIM_PROFILE: normal
       SIM_MULTIPLIER: "1"
+      TZ: Europe/Kyiv
+    volumes:
+      - ../../services/simulator/scenario.yaml:/app/config/scenario.yaml:ro
     depends_on:
       - backend
     ports:
       - "8010:8010"
 
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/host
+    environment:
+      TZ: Europe/Kyiv
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro,rslave
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    command:
+      - --housekeeping_interval=10s
+      - --docker_only=true
+      - --store_container_labels=false
+      - --whitelisted_container_labels=com.docker.swarm.service.name,com.docker.stack.namespace,com.docker.compose.service,com.docker.compose.project
+    environment:
+      TZ: Europe/Kyiv
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
   prometheus:
     image: prom/prometheus:v2.54.1
+    environment:
+      TZ: Europe/Kyiv
     volumes:
       - ../../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
@@ -73,12 +125,17 @@ services:
     depends_on:
       - backend
       - simulator
+      - node-exporter
+      - cadvisor
 
   grafana:
     image: grafana/grafana:11.2.0
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
+      # Київський час за замовчуванням у дашбордах і часових пікерах
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: Europe/Kyiv
+      TZ: Europe/Kyiv
     volumes:
       - ../../monitoring/grafana/provisioning:/etc/grafana/provisioning
       - ../../monitoring/grafana/dashboards:/var/lib/grafana/dashboards

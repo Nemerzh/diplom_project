@@ -8,6 +8,8 @@ Desktop.ini
 .idea/
 .vscode/
 .cursor/
+.history/
+*.code-workspace
 
 # Python
 __pycache__/
@@ -38,6 +40,8 @@ node_modules/
 dist/
 build/
 .vite/
+.eslintcache
+.parcel-cache/
 *.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
@@ -69,10 +73,23 @@ logs/
 tmp/
 temp/
 
-# Experiment artifacts
+# Локальні override-конфіги (не комітимо)
+*.local.yml
+*.local.yaml
+*.local.env
+
+# Local infra (docker save tar, kind pg-backup, experiments csv тощо)
+infra/local/out/
+
+# Auto-rendered маніфести (наприклад deploy/swarm/stack.rendered.yml із content-hash іменами)
+*.rendered.yml
+*.rendered.yaml
+
+# Experiment artifacts (старі імена + майбутні теки)
 metrics_snapshot.json
 load_test_results.csv
 results/
+experiments/out/
 
 # Terraform / IaC (future-proof)
 .terraform/

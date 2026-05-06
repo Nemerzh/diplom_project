@@ -1,0 +1,153 @@
+# Сегментація мережі для namespace `energy` через NetworkPolicy.
+# kind за замовчуванням використовує CNI без enforcement NetworkPolicy (kindnetd).
+# Щоб політики реально блокували — встановіть Calico у kind:
+#   kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml
+# або підмініть default CNI у cluster.yaml (`disableDefaultCNI: true` + Calico install).
+# Без CNI з enforcement маніфести застосуються, але трафік не фільтруватиметься —
+# вони слугують як «policy as documentation».
+
+# Усі поди в namespace energy за замовчуванням не приймають жодного ingress/egress трафіку,
+# крім явно дозволеного нижче.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: energy
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress", "Egress"]
+---
+# DNS дозволено всім подам у `energy` (інакше резолв postgres/backend/frontend не працюватиме).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: energy
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+# Postgres приймає підключення лише від backend і backend-migrate.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-allow-backend
+  namespace: energy
+spec:
+  podSelector:
+    matchLabels: { app: postgres }
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: backend }
+        - podSelector:
+            matchLabels: { app: backend-migrate }
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+# Backend (порт 8000) приймає трафік від:
+#   • frontend, simulator у тому ж namespace,
+#   • namespace `monitoring` (Prometheus scrape /metrics),
+#   • будь-якого NodePort/Ingress (це необхідно для kind hostPort, ipBlock=0.0.0.0/0).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-allow-clients
+  namespace: energy
+spec:
+  podSelector:
+    matchLabels: { app: backend }
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: frontend }
+        - podSelector:
+            matchLabels: { app: simulator }
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - { protocol: TCP, port: 8000 }
+---
+# Frontend (порт 80) — публічний.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-allow-public
+  namespace: energy
+spec:
+  podSelector:
+    matchLabels: { app: frontend }
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - { protocol: TCP, port: 80 }
+---
+# Backend може ходити лише до Postgres (egress 5432) у тому ж namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-egress-postgres
+  namespace: energy
+spec:
+  podSelector:
+    matchLabels: { app: backend }
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: postgres }
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+# Backend-migrate Job: те саме, що й backend, по egress до Postgres.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-migrate-egress-postgres
+  namespace: energy
+spec:
+  podSelector:
+    matchLabels: { app: backend-migrate }
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: postgres }
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+# Simulator може йти лише до backend:8000.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: simulator-egress-backend
+  namespace: energy
+spec:
+  podSelector:
+    matchLabels: { app: simulator }
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: backend }
+      ports:
+        - { protocol: TCP, port: 8000 }

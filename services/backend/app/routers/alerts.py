@@ -8,6 +8,7 @@ from app.db import get_db
 from app.models import Alert, AlertRule, ElectricalLine, Enterprise, Meter, Site, Substation, Transformer
 from app.schemas import AlertRuleIn, AlertRuleOut
 from app.services.threshold_alerts import evaluate_threshold_rules
+from app.utils.timeutils import now_utc
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -239,6 +240,6 @@ def resolve_alert(alert_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="сповіщення не знайдено")
     if alert.resolved_at is not None:
         return {"ok": True, "already_resolved": True}
-    alert.resolved_at = datetime.utcnow()
+    alert.resolved_at = now_utc()
     db.commit()
     return {"ok": True, "resolved_at": alert.resolved_at.isoformat()}

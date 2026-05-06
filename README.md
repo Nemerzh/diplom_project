@@ -4,14 +4,18 @@ MVP стенд для дипломного порівняння Docker Swarm vs 
 
 ## Components
 
-- `services/backend` - FastAPI backend (registry/readings/validation/reports/alerts/system/topology).
-- `services/frontend` - React + Vite dashboard.
-- `services/simulator` - сценарний генератор показів (v2: smoothing/events/retries).
-- `monitoring` - Prometheus + Grafana provisioning.
+- `services/backend` — FastAPI backend (registry/readings/validation/reports/alerts/system/topology). Детальніше: [services/backend/README.md](services/backend/README.md).
+- `services/frontend` — React + Vite dashboard. Детальніше: [services/frontend/README.md](services/frontend/README.md).
+- `services/simulator` — сценарний генератор показів (v2: smoothing/events/retries). Детальніше: [services/simulator/README.md](services/simulator/README.md).
+- `monitoring` — Prometheus + Grafana provisioning. Детальніше: [monitoring/README.md](monitoring/README.md).
 - `deploy/compose` - local docker compose.
 - `deploy/swarm` - docker stack file.
 - `deploy/k8s` - kubernetes manifests.
 - `scripts` - seed/load/failover/metrics scripts.
+
+Swarm secret management guide: `deploy/swarm/SECRETS.md`
+
+**Локальний Swarm (Multipass) + Kubernetes (kind):** інструкції та `Makefile` — [`infra/local/README.md`](infra/local/README.md).
 
 ## Local run (Docker Compose)
 

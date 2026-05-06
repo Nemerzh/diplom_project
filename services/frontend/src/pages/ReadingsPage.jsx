@@ -11,18 +11,13 @@ import {
   runValidation
 } from "../api";
 import { FieldError, FieldLabel, Toasts, styles } from "../ui.jsx";
+import { formatDateTime } from "../utils/datetime.js";
 
 const READINGS_LIMIT = 800;
 const PAGE_SIZES = [20, 25, 30];
 
 function fmtDt(iso) {
-  if (!iso) return "—";
-  try {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? String(iso) : d.toLocaleString("uk-UA", { dateStyle: "short", timeStyle: "medium" });
-  } catch {
-    return String(iso);
-  }
+  return formatDateTime(iso, { timeStyle: "medium" });
 }
 
 function norm(s) {

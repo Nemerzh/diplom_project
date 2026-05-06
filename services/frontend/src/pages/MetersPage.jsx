@@ -8,6 +8,7 @@ import {
   getTransformers
 } from "../api";
 import { FieldLabel, styles } from "../ui.jsx";
+import { formatDateTime } from "../utils/datetime.js";
 
 const ROLE_LABELS = {
   workshop_zone: "Зона цеху",
@@ -29,13 +30,7 @@ const METER_TYPE_UA = {
 };
 
 function fmtDt(iso) {
-  if (!iso) return "—";
-  try {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? String(iso) : d.toLocaleString("uk-UA", { dateStyle: "short", timeStyle: "short" });
-  } catch {
-    return String(iso);
-  }
+  return formatDateTime(iso);
 }
 
 function norm(s) {

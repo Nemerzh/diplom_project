@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: energy
+  labels:
+    app.kubernetes.io/part-of: energy-platform
 ---
 apiVersion: v1
 kind: Secret
@@ -14,26 +16,78 @@ stringData:
   POSTGRES_USER: energy
   POSTGRES_PASSWORD: energy
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: energy
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
   namespace: energy
+  labels: { app: postgres, app.kubernetes.io/component: database }
 spec:
   replicas: 1
+  # PVC RWO дозволяє лише один Pod одночасно: під час оновлення спершу зупиняємо старий, потім піднімаємо новий.
+  strategy:
+    type: Recreate
   selector:
     matchLabels: { app: postgres }
   template:
     metadata:
       labels: { app: postgres }
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # postgres:16-alpine створює користувача `postgres` з UID 70.
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: postgres
           image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            # ROFS для postgres вимикаємо: серверу потрібно писати у `/var/run/postgresql` (unix-socket).
+            readOnlyRootFilesystem: false
           envFrom:
             - secretRef: { name: energy-secrets }
+          env:
+            # subPath + PGDATA — стандартна практика для Postgres на k8s,
+            # дані лежать у підкаталозі pgdata всередині тому, без конфліктів з lost+found.
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+            # БД зберігаємо в UTC; TZ — лише для лог-таймстемпів postgres у Києві.
+            - { name: TZ,     value: Europe/Kyiv }
           ports:
             - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "energy", "-d", "energy"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-data
 ---
 apiVersion: v1
 kind: Service
@@ -51,22 +105,43 @@ kind: Deployment
 metadata:
   name: backend
   namespace: energy
+  labels: { app: backend, app.kubernetes.io/component: api }
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels: { app: backend }
   template:
     metadata:
       labels: { app: backend }
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: backend
           image: energy-backend:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: DATABASE_URL
               value: postgresql+psycopg2://energy:energy@postgres:5432/energy
             - name: CORS_ORIGINS
-              value: http://localhost
+              value: http://localhost,http://localhost:8081,http://127.0.0.1:8081
+            - name: TZ
+              value: Europe/Kyiv
           ports:
             - containerPort: 8000
           readinessProbe:
@@ -78,6 +153,12 @@ spec:
           resources:
             requests: { cpu: "100m", memory: "128Mi" }
             limits: { cpu: "500m", memory: "512Mi" }
+          volumeMounts:
+            # ROFS активний → /tmp і кеш Python мають бути writable
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { medium: Memory, sizeLimit: 64Mi }
 ---
 apiVersion: v1
 kind: Service
@@ -95,22 +176,46 @@ kind: Deployment
 metadata:
   name: frontend
   namespace: energy
+  labels: { app: frontend, app.kubernetes.io/component: ui }
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels: { app: frontend }
   template:
     metadata:
       labels: { app: frontend }
     spec:
+      automountServiceAccountToken: false
+      # nginx у стандартному образі бінд порту 80 потребує root → не вмикаємо runAsNonRoot,
+      # натомість прибираємо всі capabilities крім NET_BIND_SERVICE та забороняємо PrivilegeEscalation.
       containers:
         - name: frontend
           image: energy-frontend:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["NET_BIND_SERVICE", "CHOWN", "SETUID", "SETGID"]
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: TZ
+              value: Europe/Kyiv
           ports:
             - containerPort: 80
           readinessProbe:
             httpGet: { path: /, port: 80 }
             initialDelaySeconds: 5
+          resources:
+            requests: { cpu: "20m", memory: "32Mi" }
+            limits:   { cpu: "200m", memory: "128Mi" }
 ---
 apiVersion: v1
 kind: Service

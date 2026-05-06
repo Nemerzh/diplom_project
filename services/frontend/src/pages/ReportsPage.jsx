@@ -20,6 +20,7 @@ import SiteComparisonPanel from "../reports/SiteComparisonPanel.jsx";
 import SiteDistributionChart from "../reports/SiteDistributionChart.jsx";
 import TopListsCards from "../reports/TopListsCards.jsx";
 import { Toasts, styles } from "../ui.jsx";
+import { formatDateTime } from "../utils/datetime.js";
 
 function defaultDateRange() {
   const to = new Date();
@@ -287,7 +288,7 @@ export default function ReportsPage() {
             {ctx.transformer.code}) → <b>{ctx.line.name}</b> ({ctx.line.code})
           </p>
           <p style={styles.muted}>
-            Період: {new Date(ctx.period.date_from).toLocaleString("uk-UA")} — {new Date(ctx.period.date_to).toLocaleString("uk-UA")}{" "}
+            Період: {formatDateTime(ctx.period.date_from)} — {formatDateTime(ctx.period.date_to)}{" "}
             · Гранулярність: {ctx.granularity === "hourly" ? "погодинно" : ctx.granularity === "monthly" ? "помісячно" : "подобово"}
             {ctx.site_filter_id ? ` · Фільтр об'єкта #${ctx.site_filter_id}` : ""}
           </p>

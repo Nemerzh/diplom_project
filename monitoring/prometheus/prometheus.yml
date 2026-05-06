@@ -1,15 +1,57 @@
 global:
   scrape_interval: 15s
+  evaluation_interval: 15s
 
 scrape_configs:
+  # Бізнесові метрики
   - job_name: backend
     metrics_path: /metrics
+    dns_sd_configs:
+      # У swarm `tasks.<service>` повертає A-records усіх задач (replicas) сервісу;
+      # у docker-compose теж резолвиться (tasks.<svc> = одна задача).
+      - names: ["tasks.backend"]
+        type: A
+        port: 8000
     static_configs:
+      # Fallback для docker-compose без DNS-розкладу tasks.* — імʼя сервісу + порт.
       - targets: ["backend:8000"]
+        labels: { source: compose }
+    relabel_configs:
+      # Якщо обидва способи резолвлять — лишаємо лише той, що з swarm-таскою (інший упаде в `down`).
+      - source_labels: [__meta_dns_name]
+        regex: ".+"
+        target_label: source
+        replacement: swarm
+
   - job_name: simulator
     metrics_path: /metrics
+    dns_sd_configs:
+      - names: ["tasks.simulator"]
+        type: A
+        port: 8010
     static_configs:
       - targets: ["simulator:8010"]
+        labels: { source: compose }
+
   - job_name: prometheus
     static_configs:
       - targets: ["prometheus:9090"]
+
+  # Інфра-метрики
+  - job_name: node-exporter
+    dns_sd_configs:
+      - names: ["tasks.node-exporter"]
+        type: A
+        port: 9100
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels: { source: compose }
+
+  - job_name: cadvisor
+    dns_sd_configs:
+      - names: ["tasks.cadvisor"]
+        type: A
+        port: 8080
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels: { source: compose }

@@ -1,16 +1,34 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
-class SiteCreate(BaseModel):
+class _UtcAwareModel(BaseModel):
+    """Базовий клас: усі поля ``datetime`` нормалізуються до tz-aware UTC.
+
+    Колонки БД у нас зберігаються як ``timestamp without time zone`` із семантикою
+    UTC. SQLAlchemy віддає їх у Python як naive datetime — pydantic v2 у такому
+    випадку серіалізує його як ISO без offset. Цей валідатор приводить будь-який
+    naive datetime до tz-aware UTC, після чого pydantic уже сам додасть
+    ``+00:00``/``Z`` у JSON.
+    """
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _coerce_naive_datetime_to_utc(cls, value):
+        if isinstance(value, datetime) and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+
+
+class SiteCreate(_UtcAwareModel):
     enterprise_id: int
     name: str
     location: str | None = None
     line_id: int | None = None
 
 
-class SiteOut(BaseModel):
+class SiteOut(_UtcAwareModel):
     id: int
     enterprise_id: int
     line_id: int | None = None
@@ -22,7 +40,7 @@ class SiteOut(BaseModel):
         from_attributes = True
 
 
-class EnterpriseOut(BaseModel):
+class EnterpriseOut(_UtcAwareModel):
     id: int
     name: str
     city_id: int | None = None
@@ -31,17 +49,17 @@ class EnterpriseOut(BaseModel):
         from_attributes = True
 
 
-class EnterpriseCreate(BaseModel):
+class EnterpriseCreate(_UtcAwareModel):
     name: str
     city_id: int | None = None
 
 
-class CityCreate(BaseModel):
+class CityCreate(_UtcAwareModel):
     name: str
     region: str | None = None
 
 
-class CityOut(BaseModel):
+class CityOut(_UtcAwareModel):
     id: int
     name: str
     region: str | None = None
@@ -50,7 +68,7 @@ class CityOut(BaseModel):
         from_attributes = True
 
 
-class SubstationCreate(BaseModel):
+class SubstationCreate(_UtcAwareModel):
     enterprise_id: int
     code: str
     name: str
@@ -61,7 +79,7 @@ class SubstationCreate(BaseModel):
     threshold_critical_kw: float | None = None
 
 
-class SubstationOut(BaseModel):
+class SubstationOut(_UtcAwareModel):
     id: int
     enterprise_id: int
     code: str
@@ -77,13 +95,13 @@ class SubstationOut(BaseModel):
         from_attributes = True
 
 
-class SubstationThresholdsUpdate(BaseModel):
+class SubstationThresholdsUpdate(_UtcAwareModel):
     rated_capacity_kw: float | None = None
     threshold_warning_kw: float | None = None
     threshold_critical_kw: float | None = None
 
 
-class TransformerCreate(BaseModel):
+class TransformerCreate(_UtcAwareModel):
     substation_id: int
     code: str
     name: str
@@ -93,7 +111,7 @@ class TransformerCreate(BaseModel):
     status: str = "active"
 
 
-class TransformerOut(BaseModel):
+class TransformerOut(_UtcAwareModel):
     id: int
     substation_id: int
     code: str
@@ -107,7 +125,7 @@ class TransformerOut(BaseModel):
         from_attributes = True
 
 
-class ElectricalLineCreate(BaseModel):
+class ElectricalLineCreate(_UtcAwareModel):
     transformer_id: int
     code: str
     name: str
@@ -115,7 +133,7 @@ class ElectricalLineCreate(BaseModel):
     status: str = "active"
 
 
-class ElectricalLineOut(BaseModel):
+class ElectricalLineOut(_UtcAwareModel):
     id: int
     transformer_id: int
     code: str
@@ -130,12 +148,12 @@ class ElectricalLineOut(BaseModel):
         from_attributes = True
 
 
-class LineThresholdsUpdate(BaseModel):
+class LineThresholdsUpdate(_UtcAwareModel):
     threshold_warning_kw: float | None = None
     threshold_critical_kw: float | None = None
 
 
-class MeterCreate(BaseModel):
+class MeterCreate(_UtcAwareModel):
     site_id: int
     line_id: int
     zone_name: str
@@ -146,7 +164,7 @@ class MeterCreate(BaseModel):
     last_seen_at: datetime | None = None
 
 
-class MeterOut(BaseModel):
+class MeterOut(_UtcAwareModel):
     id: int
     site_id: int
     line_id: int
@@ -163,14 +181,14 @@ class MeterOut(BaseModel):
         from_attributes = True
 
 
-class ReadingIn(BaseModel):
+class ReadingIn(_UtcAwareModel):
     meter_id: int
     ts: datetime
     value_kwh: float = Field(ge=0)
     source: str = "api"
 
 
-class ReadingOut(BaseModel):
+class ReadingOut(_UtcAwareModel):
     id: int
     meter_id: int
     ts: datetime
@@ -182,7 +200,7 @@ class ReadingOut(BaseModel):
         from_attributes = True
 
 
-class AlertRuleIn(BaseModel):
+class AlertRuleIn(_UtcAwareModel):
     site_id: int | None = None
     meter_id: int | None = None
     rule_type: str = "threshold"
@@ -192,7 +210,7 @@ class AlertRuleIn(BaseModel):
     enabled: bool = True
 
 
-class AlertRuleOut(BaseModel):
+class AlertRuleOut(_UtcAwareModel):
     id: int
     site_id: int | None = None
     meter_id: int | None = None

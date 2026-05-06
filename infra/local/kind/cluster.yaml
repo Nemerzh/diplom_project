@@ -1,0 +1,22 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: energy
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # Проброс на хост (після kubectl patch NodePort → 30080/30081 у infra/local/kind/up.sh)
+      - containerPort: 30080
+        hostPort: 8000
+        protocol: TCP
+      - containerPort: 30081
+        hostPort: 8081
+        protocol: TCP
+      # Моніторинг: Prometheus та Grafana NodePort (30090/30030 → 9090/3000 на хості)
+      - containerPort: 30090
+        hostPort: 9090
+        protocol: TCP
+      - containerPort: 30030
+        hostPort: 3000
+        protocol: TCP
+  - role: worker
+  - role: worker

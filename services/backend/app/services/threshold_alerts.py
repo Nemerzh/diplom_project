@@ -1,12 +1,13 @@
 """Оцінка порогових правил за сумою кВт·год у validated_readings за sliding window."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.metrics import ALERTS_GENERATED_TOTAL
 from app.models import Alert, AlertRule, ElectricalLine, Meter, Transformer, ValidatedReading
+from app.utils.timeutils import now_utc
 
 
 def evaluate_threshold_rules(db: Session) -> int:
@@ -16,7 +17,7 @@ def evaluate_threshold_rules(db: Session) -> int:
         if rule.rule_type != "threshold":
             continue
         days = max(1, min(366, int(rule.window_days or 30)))
-        since = datetime.utcnow() - timedelta(days=days)
+        since = now_utc() - timedelta(days=days)
         q = (
             db.query(func.coalesce(func.sum(ValidatedReading.value_kwh), 0.0))
             .select_from(ValidatedReading)
@@ -65,7 +66,7 @@ def evaluate_threshold_rules(db: Session) -> int:
                 f"За останні {days} днів споживання {total:.2f} кВт·год перевищило поріг "
                 f"{rule.threshold_kwh:.2f} кВт·год"
             ),
-            created_at=datetime.utcnow(),
+            created_at=now_utc(),
         )
         db.add(alert)
         created += 1

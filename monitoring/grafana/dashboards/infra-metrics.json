@@ -1,0 +1,93 @@
+{
+  "id": null,
+  "title": "Infra: Nodes & Containers",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["infra", "diploma"],
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Node CPU usage (%, по інстансах)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+      "targets": [
+        {
+          "expr": "100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[1m])))",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Node memory usage (%, по інстансах)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+      "targets": [
+        {
+          "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Node network RX/TX (bytes/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "targets": [
+        {
+          "expr": "sum by (instance) (rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*|br-.*|cni.*\"}[1m]))",
+          "legendFormat": "rx {{instance}}"
+        },
+        {
+          "expr": "sum by (instance) (rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*|br-.*|cni.*\"}[1m]))",
+          "legendFormat": "tx {{instance}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Node disk read/write (bytes/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "targets": [
+        {
+          "expr": "sum by (instance) (rate(node_disk_read_bytes_total[1m]))",
+          "legendFormat": "read {{instance}}"
+        },
+        {
+          "expr": "sum by (instance) (rate(node_disk_written_bytes_total[1m]))",
+          "legendFormat": "write {{instance}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Container CPU (%, top by image/name)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "percent" } },
+      "targets": [
+        {
+          "expr": "topk(10, 100 * sum by (name) (rate(container_cpu_usage_seconds_total{name!=\"\"}[1m])))",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Container memory RSS (bytes, top)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (name) (container_memory_rss{name!=\"\"}))",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    }
+  ],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "Europe/Kyiv",
+  "refresh": "10s"
+}

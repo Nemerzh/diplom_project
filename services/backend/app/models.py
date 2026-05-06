@@ -5,6 +5,7 @@ from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text,
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.utils.timeutils import now_utc
 
 
 class MeterStatus(str, enum.Enum):
@@ -18,7 +19,7 @@ class Enterprise(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     city_id: Mapped[int] = mapped_column(ForeignKey("cities.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     city = relationship("City", back_populates="enterprises")
     sites = relationship("Site", back_populates="enterprise")
     substations = relationship("Substation", back_populates="enterprise")
@@ -29,7 +30,7 @@ class City(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     region: Mapped[str] = mapped_column(String(128), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     enterprises = relationship("Enterprise", back_populates="city")
 
 
@@ -40,7 +41,7 @@ class Site(Base):
     line_id: Mapped[int | None] = mapped_column(ForeignKey("electrical_lines.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     location: Mapped[str] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     enterprise = relationship("Enterprise", back_populates="sites")
     line = relationship("ElectricalLine", back_populates="sites")
     meters = relationship("Meter", back_populates="site")
@@ -58,7 +59,7 @@ class Meter(Base):
     meter_type: Mapped[str] = mapped_column(String(128), nullable=False, default="electricity")
     status: Mapped[MeterStatus] = mapped_column(Enum(MeterStatus), default=MeterStatus.active)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     site = relationship("Site", back_populates="meters")
     line = relationship("ElectricalLine")
 
@@ -75,7 +76,7 @@ class Substation(Base):
     threshold_warning_kw: Mapped[float | None] = mapped_column(Float, nullable=True)
     threshold_critical_kw: Mapped[float | None] = mapped_column(Float, nullable=True)
     node_status: Mapped[str] = mapped_column(String(32), nullable=False, default="normal")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     enterprise = relationship("Enterprise", back_populates="substations")
     transformers = relationship("Transformer", back_populates="substation")
 
@@ -90,7 +91,7 @@ class Transformer(Base):
     voltage_in_kv: Mapped[float] = mapped_column(Float, nullable=True)
     voltage_out_kv: Mapped[float] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     substation = relationship("Substation", back_populates="transformers")
     lines = relationship("ElectricalLine", back_populates="transformer")
 
@@ -106,7 +107,7 @@ class ElectricalLine(Base):
     threshold_warning_kw: Mapped[float | None] = mapped_column(Float, nullable=True)
     threshold_critical_kw: Mapped[float | None] = mapped_column(Float, nullable=True)
     node_status: Mapped[str] = mapped_column(String(32), nullable=False, default="normal")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     transformer = relationship("Transformer", back_populates="lines")
     sites = relationship("Site", back_populates="line")
 
@@ -118,7 +119,7 @@ class RawReading(Base):
     ts: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     value_kwh: Mapped[float] = mapped_column(Float, nullable=False)
     source: Mapped[str] = mapped_column(String(64), nullable=False, default="api")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     __table_args__ = (UniqueConstraint("meter_id", "ts", "source", name="uq_raw_meter_ts_source"),)
 
 
@@ -131,7 +132,7 @@ class ValidatedReading(Base):
     value_kwh: Mapped[float] = mapped_column(Float, nullable=False)
     quality_flag: Mapped[str] = mapped_column(String(32), nullable=False, default="OK")
     issue: Mapped[str] = mapped_column(Text, nullable=True)
-    validated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    validated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 
 class DailyAggregation(Base):
@@ -141,7 +142,7 @@ class DailyAggregation(Base):
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True, nullable=False)
     day: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
     total_kwh: Mapped[float] = mapped_column(Float, nullable=False, default=0)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     __table_args__ = (UniqueConstraint("meter_id", "day", name="uq_daily_meter_day"),)
 
 
@@ -152,7 +153,7 @@ class MonthlyAggregation(Base):
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True, nullable=False)
     month: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
     total_kwh: Mapped[float] = mapped_column(Float, nullable=False, default=0)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     __table_args__ = (UniqueConstraint("meter_id", "month", name="uq_monthly_meter_month"),)
 
 
@@ -166,7 +167,7 @@ class AlertRule(Base):
     severity: Mapped[str] = mapped_column(String(32), nullable=False, default="medium")
     window_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
     enabled: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 
 class Alert(Base):
@@ -183,7 +184,7 @@ class Alert(Base):
     alert_type: Mapped[str] = mapped_column(String(64), nullable=False)
     severity: Mapped[str] = mapped_column(String(32), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     resolved_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
 
@@ -206,4 +207,4 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     role: Mapped[str] = mapped_column(String(64), nullable=False, default="operator")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)

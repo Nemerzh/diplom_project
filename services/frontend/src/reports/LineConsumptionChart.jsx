@@ -8,10 +8,13 @@ import {
   YAxis
 } from "recharts";
 import { styles } from "../ui.jsx";
+import { formatDateTime } from "../utils/datetime.js";
 
 export default function LineConsumptionChart({ timeSeries, granularity }) {
   const data = (timeSeries || []).map((row) => ({
-    label: new Date(row.bucket).toLocaleString("uk-UA", {
+    label: formatDateTime(row.bucket, {
+      dateStyle: undefined,
+      timeStyle: undefined,
       month: "short",
       day: "numeric",
       hour: granularity === "hourly" ? "2-digit" : undefined,

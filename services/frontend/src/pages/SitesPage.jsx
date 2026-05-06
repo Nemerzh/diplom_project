@@ -8,19 +8,12 @@ import {
   getTransformers
 } from "../api";
 import { FieldLabel, styles } from "../ui.jsx";
+import { formatDateTime } from "../utils/datetime.js";
 
 const PAGE_SIZES = [20, 25, 30];
 
 function fmtDt(iso) {
-  if (!iso) return "—";
-  try {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime())
-      ? String(iso)
-      : d.toLocaleString("uk-UA", { dateStyle: "short", timeStyle: "short" });
-  } catch {
-    return String(iso);
-  }
+  return formatDateTime(iso);
 }
 
 function norm(s) {

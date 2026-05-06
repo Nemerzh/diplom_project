@@ -9,6 +9,7 @@ import {
   runAlerts
 } from "../api";
 import { FieldLabel, Toasts, styles } from "../ui.jsx";
+import { formatDateTime } from "../utils/datetime.js";
 
 function severityBadgeStyle(sev) {
   const s = String(sev || "").toLowerCase();
@@ -23,13 +24,7 @@ function severityBadgeStyle(sev) {
 }
 
 function fmtDt(iso) {
-  if (!iso) return "—";
-  try {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("uk-UA", { dateStyle: "short", timeStyle: "short" });
-  } catch {
-    return iso;
-  }
+  return formatDateTime(iso);
 }
 
 const SEVERITY_UA = {

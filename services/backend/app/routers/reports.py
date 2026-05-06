@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.metrics import REPORT_REQUESTS_TOTAL
+from app.utils.timeutils import now_utc
 from app.models import (
     DailyAggregation,
     ElectricalLine,
@@ -144,7 +145,7 @@ def summary_report(
     db: Session = Depends(get_db),
 ):
     REPORT_REQUESTS_TOTAL.labels("summary").inc()
-    now = datetime.utcnow()
+    now = now_utc()
     period_end = now
     period_start = now - timedelta(days=days)
     prev_start = period_start - timedelta(days=days)
@@ -269,7 +270,7 @@ def summary_report(
 
 
 def _pick_period(from_date: datetime | None, to_date: datetime | None) -> tuple[datetime, datetime]:
-    now = datetime.utcnow()
+    now = now_utc()
     period_end = to_date or now
     if from_date:
         period_start = from_date

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getDashboard } from "../api";
 import { FieldLabel, styles, Toasts } from "../ui.jsx";
+import { formatDateTime, formatTime } from "../utils/datetime.js";
 
 function fmtInt(n) {
   return Number(n || 0).toLocaleString("uk-UA");
@@ -106,7 +107,7 @@ export default function DashboardPage() {
       .slice(0, points)
       .reverse()
       .map((r) => ({
-        ts: new Date(r.ts).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        ts: formatTime(r.ts),
         value: Number(r.value_kwh)
       }));
   }, [data.readings, points]);
@@ -138,7 +139,7 @@ export default function DashboardPage() {
           </label>
           {lastRefresh ? (
             <span style={styles.muted}>
-              Оновлено: {lastRefresh.toLocaleString("uk-UA")}
+              Оновлено: {formatDateTime(lastRefresh)}
               {latencyMs != null ? ` · ${latencyMs} мс` : ""}
             </span>
           ) : null}
