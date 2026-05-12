@@ -57,7 +57,11 @@ class Meter(Base):
     meter_role: Mapped[str] = mapped_column(String(64), nullable=False, default="submeter")
     is_main_meter: Mapped[bool] = mapped_column(nullable=False, default=False)
     meter_type: Mapped[str] = mapped_column(String(128), nullable=False, default="electricity")
-    status: Mapped[MeterStatus] = mapped_column(Enum(MeterStatus), default=MeterStatus.active)
+    # БД з Alembic — VARCHAR, не окремий тип PostgreSQL ENUM (без цього INSERT дає «type meterstatus does not exist»).
+    status: Mapped[MeterStatus] = mapped_column(
+        Enum(MeterStatus, native_enum=False, values_callable=lambda x: [i.value for i in x]),
+        default=MeterStatus.active,
+    )
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     site = relationship("Site", back_populates="meters")

@@ -17,6 +17,14 @@ Swarm secret management guide: `deploy/swarm/SECRETS.md`
 
 **Локальний Swarm (Multipass) + Kubernetes (kind):** інструкції та `Makefile` — [`infra/local/README.md`](infra/local/README.md).
 
+**Детальна карта репозиторію** (призначення файлів і груп): [`docs/repository-map/README.md`](docs/repository-map/README.md).
+
+**Огляд «що до чого»** (три середовища деплою, Makefile, потік даних): [`docs/OVERVIEW-what-happens-here.md`](docs/OVERVIEW-what-happens-here.md).
+
+**Бриф для дипломного керівника** (тема, мета, методологія, чеклист артефактів): [`docs/SUPERVISOR_BRIEF.md`](docs/SUPERVISOR_BRIEF.md).
+
+**Чернетки-концепти по абзацах для УП / слайдів:** [`docs/supervisor-concepts/README.md`](docs/supervisor-concepts/README.md).
+
 ## Local run (Docker Compose)
 
 1. Build and run:
@@ -52,7 +60,7 @@ Swarm secret management guide: `deploy/swarm/SECRETS.md`
 ### Simulator environment variables
 
 - `API_URL` - backend URL (default `http://backend:8000`)
-- `METER_IDS` - optional CSV whitelist (example: `1,2,3`)
+- `METER_IDS` - optional CSV whitelist (example: `1,2,3`; omit to use all active meters from the API)
 - `SIM_CONFIG_PATH` - path to scenario yaml in container
 - `SIM_AUTOSTART` - `1|true|yes` for auto-run on startup
 

@@ -1,0 +1,55 @@
+# HorizontalPodAutoscaler для backend (autoscaling/v2).
+#
+# Вимоги:
+#   1. У контейнері backend заданий resources.requests.cpu (100m у energy-platform.yaml) —
+#      HPA рахує utilization як avg(usage)/requests.
+#   2. metrics-server присутній у kube-system (для kind встановлюється у infra/local/kind/up.sh
+#      з прапорцем --kubelet-insecure-tls).
+#   3. У Deployment backend поле spec.replicas НЕ виставлене явно — інакше кожен
+#      `kubectl apply -f energy-platform.yaml` скидатиме рішення HPA назад до фіксованої кількості.
+#
+# Демо-сценарій: experiments/hpa_load.sh генерує паралельні /api запити, споживання CPU
+# перевищує 60% від requests → HPA доводить replicas до cluster-CPU-bound значення.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend
+  namespace: energy
+  labels:
+    app: backend
+    app.kubernetes.io/component: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          # 60% від requests.cpu=100m → коли середнє використання > 60m/pod, додаємо репліки.
+          averageUtilization: 60
+  behavior:
+    # Швидке зростання (без stabilization, +100% реплік за крок 15с) — щоб демо було видно одразу.
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+      selectPolicy: Max
+    # Повільне скорочення (вікно 120с) — реалістично, без «миготіння» при коливаннях.
+    scaleDown:
+      stabilizationWindowSeconds: 120
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+      selectPolicy: Max

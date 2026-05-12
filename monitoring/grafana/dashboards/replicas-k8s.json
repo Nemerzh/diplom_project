@@ -1,0 +1,63 @@
+{
+  "id": null,
+  "title": "Replicas: Kubernetes",
+  "description": "**kube-state-metrics** у namespace `monitoring`. Лише Deployments **backend, frontend, simulator, postgres** у вибраному namespace (типово **energy**). Для HPA на backend див. також `kubectl get hpa -n energy`.",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["k8s", "kind", "experiments", "diploma"],
+  "panels": [
+    {
+      "type": "row",
+      "title": "Deployments — готові репліки",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Available replicas (kube_deployment_status_replicas_available)",
+      "description": "Скільки подів deployment зараз у стані, що враховується в available.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "decimals": 0 } },
+      "targets": [
+        {
+          "expr": "max by (namespace, deployment) (kube_deployment_status_replicas_available{namespace=~\"$k8s_namespace\", deployment=~\"backend|frontend|simulator|postgres\"})",
+          "legendFormat": "{{deployment}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Available і unavailable",
+      "description": "**available** — готові; **unavailable** — очікують / проблемні (аналог «не все running»).",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 9 },
+      "fieldConfig": { "defaults": { "decimals": 0 } },
+      "targets": [
+        {
+          "expr": "max by (namespace, deployment) (kube_deployment_status_replicas_available{namespace=~\"$k8s_namespace\", deployment=~\"backend|frontend|simulator|postgres\"})",
+          "legendFormat": "{{deployment}} — available"
+        },
+        {
+          "expr": "max by (namespace, deployment) (kube_deployment_status_replicas_unavailable{namespace=~\"$k8s_namespace\", deployment=~\"backend|frontend|simulator|postgres\"})",
+          "legendFormat": "{{deployment}} — unavailable"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "k8s_namespace",
+        "label": "K8s namespace",
+        "type": "constant",
+        "query": "energy",
+        "current": { "selected": true, "text": "energy", "value": "energy" },
+        "options": [{ "selected": true, "text": "energy", "value": "energy" }],
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "time": { "from": "now-30m", "to": "now" },
+  "timezone": "Europe/Kyiv",
+  "refresh": "5s"
+}

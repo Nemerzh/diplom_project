@@ -9,6 +9,7 @@ import {
   getSubstations,
   getTransformers,
   getLines,
+  getReportsSummary,
   rebuildReports
 } from "../api";
 import AlertsSummaryCard from "../reports/AlertsSummaryCard.jsx";
@@ -49,6 +50,7 @@ export default function ReportsPage() {
   const [compare, setCompare] = useState(null);
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [enterpriseConsumption, setEnterpriseConsumption] = useState(null);
 
   const pushToast = (text, type = "success") => {
     const id = Date.now() + Math.random();
@@ -83,6 +85,21 @@ export default function ReportsPage() {
         setTransformers([]);
       } catch {
         setSubstations([]);
+      }
+    })();
+  }, [enterpriseId]);
+
+  useEffect(() => {
+    if (!enterpriseId) {
+      setEnterpriseConsumption(null);
+      return;
+    }
+    (async () => {
+      try {
+        const s = await getReportsSummary(30, Number(enterpriseId));
+        setEnterpriseConsumption(s);
+      } catch {
+        setEnterpriseConsumption(null);
       }
     })();
   }, [enterpriseId]);
@@ -239,6 +256,32 @@ export default function ReportsPage() {
         <p style={styles.muted}>
           Аналітичний dashboard для оператора: лінія → об’єкти → лічильники, KPI, графіки та сповіщення.
         </p>
+        {enterpriseId && enterpriseConsumption?.kpi != null ? (
+          <div
+            style={{
+              marginTop: 16,
+              padding: "12px 14px",
+              borderRadius: 10,
+              background: "#ecfdf5",
+              borderLeft: "4px solid #16a34a"
+            }}
+          >
+            <div style={styles.muted}>Обліковане ел. споживання підприємства за останні 30 доб</div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
+              {Number(enterpriseConsumption.kpi.total_kwh || 0).toLocaleString("uk-UA", {
+                maximumFractionDigits: 0
+              })}{" "}
+              кВт·год
+            </div>
+            <p style={{ ...styles.muted, marginBottom: 0, fontSize: 13, marginTop: 6 }}>
+              Період підсумку:{" "}
+              {enterpriseConsumption.period?.from_date
+                ? `${formatDateTime(enterpriseConsumption.period.from_date)} — ${formatDateTime(enterpriseConsumption.period.to_date)}`
+                : "—"}{" "}
+              (усі об’єкти підприємства через денні агрегати). Далі — звіт обраної лінії за календарними датами нижче.
+            </p>
+          </div>
+        ) : null}
       </div>
       <ReportFilters
         enterprises={enterprises}

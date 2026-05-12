@@ -38,7 +38,7 @@ spec:
         - { protocol: UDP, port: 53 }
         - { protocol: TCP, port: 53 }
 ---
-# Postgres приймає підключення лише від backend і backend-migrate.
+# Postgres приймає підключення лише від backend, backend-migrate та Job demo-network-seed.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -54,6 +54,8 @@ spec:
             matchLabels: { app: backend }
         - podSelector:
             matchLabels: { app: backend-migrate }
+        - podSelector:
+            matchLabels: { app: demo-network-seed }
       ports:
         - { protocol: TCP, port: 5432 }
 ---
@@ -127,6 +129,23 @@ metadata:
 spec:
   podSelector:
     matchLabels: { app: backend-migrate }
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: postgres }
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+# Job demo-network-seed: той самий egress до Postgres, що й backend-migrate.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: demo-seed-egress-postgres
+  namespace: energy
+spec:
+  podSelector:
+    matchLabels: { app: demo-network-seed }
   policyTypes: ["Egress"]
   egress:
     - to:

@@ -107,7 +107,9 @@ metadata:
   namespace: energy
   labels: { app: backend, app.kubernetes.io/component: api }
 spec:
-  replicas: 2
+  # spec.replicas навмисно НЕ задано — кількістю реплік керує HPA (deploy/k8s/hpa.yaml,
+  # minReplicas=2, maxReplicas=8). Якщо HPA вимкнено (KIND_DISABLE_HPA=1), kind-up.sh
+  # скейлить до 2 вручну після `kubectl apply`.
   strategy:
     type: RollingUpdate
     rollingUpdate:

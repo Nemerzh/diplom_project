@@ -3,6 +3,9 @@ import json
 import random
 import urllib.request
 
+# Застаріло для повної топології: у Docker Compose використовуйте services/backend/scripts/compose_seed_network.py
+# (автоматично через сервіс compose-seed). Цей скрипт лишено як простий приклад HTTP-наповнення.
+
 BASE = "http://localhost:8000"
 
 

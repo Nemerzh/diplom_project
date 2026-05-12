@@ -110,7 +110,7 @@ export default function TopologyPage() {
           Вікно усереднення: {data?.window_minutes ?? "—"} хв.
         </p>
         <p style={styles.muted}>
-          Лічильники симулятора (<code>METER_IDS</code>) мають існувати в БД і бути прив&apos;язані до site+line — інакше навантаження лишиться 0.
+          Симулятор навантажує всі active лічильники з API (або лише id з <code>METER_IDS</code>, якщо змінну задано). Для ненульового навантаження лічильники мають бути прив&apos;язані до site+line.
         </p>
         <div style={{ ...styles.toolbar, flexWrap: "wrap", alignItems: "center", gap: 10 }}>
           <button style={styles.button} type="button" onClick={onRecompute} disabled={recomputing}>

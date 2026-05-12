@@ -16,8 +16,8 @@ ROOT := $(CURDIR)
 	swarm-fix-docker \
 	swarm-up swarm-down swarm-ensure-repo swarm-sync-repo-tar swarm-mount swarm-unmount \
 	swarm-load-images swarm-secrets swarm-deploy-stack swarm-deploy \
-	kind-up kind-down \
-	demo-up demo-down clean
+	kind-up kind-down kind-db-reset kind-demo-seed swarm-db-reset swarm-demo-seed \
+	demo-up demo-down demo-db-reset clean
 
 help: ## Довідка по цілях
 	@grep -E '^[a-zA-Z_-]+:.*?##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -75,8 +75,22 @@ kind-up: build-images ## kind-кластер energy + маніфести + мі�
 kind-down: ## Видалити kind-кластер energy
 	$(GIT_BASH) "$(ROOT)/infra/local/kind/down.sh"
 
+kind-demo-seed: ## Залити демо-топологію в kind (Job demo-network-seed; як у compose-seed)
+	$(GIT_BASH) "$(ROOT)/infra/local/kind/apply-demo-seed.sh"
+
+swarm-demo-seed: ## Залити демо-топологію в Swarm на node-1 (після swarm-deploy; DEMO_SEED_RESET=1 повний скид)
+	$(GIT_BASH) "$(ROOT)/infra/local/swarm/demo-seed.sh"
+
+kind-db-reset: ## Очистити PostgreSQL (energy) у kind + міграції (SKIP_MIGRATE=1 без Job)
+	$(GIT_BASH) "$(ROOT)/infra/local/reset-energy-db.sh" kind
+
+swarm-db-reset: ## Очистити PostgreSQL у Swarm + force backend (alembic); SKIP_BACKEND_RESTART=1 лише SQL
+	$(GIT_BASH) "$(ROOT)/infra/local/reset-energy-db.sh" swarm
+
 demo-up: swarm-up swarm-deploy kind-up ## Обидва кластери (RAM++)
 
 demo-down: kind-down swarm-down ## Зупинити kind і swarm VM
+
+demo-db-reset: kind-db-reset swarm-db-reset ## Очистити PostgreSQL у kind і Swarm посильно
 
 clean: demo-down vms-destroy ## Повний скидок VM (осторожно)

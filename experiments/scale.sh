@@ -90,5 +90,4 @@ csv_append "$PLATFORM" "scale" "$SERVICE" "$FROM" "$TARGET" \
   "$T_REQUEST_MS" "${T_FIRST_READY:-}" "${T_ALL_READY:-}" "${T_ALL_READY:-}" \
   "scale ${FROM}->${TARGET}"
 
-log "Результат у $CSV_FILE"
 echo "platform=$PLATFORM scenario=scale service=$SERVICE from=$FROM to=$TARGET first_ready_ms=${T_FIRST_READY:-NA} all_ready_ms=${T_ALL_READY:-NA}"

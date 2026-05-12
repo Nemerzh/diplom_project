@@ -73,6 +73,9 @@ logs/
 tmp/
 temp/
 
+*.pptx
+build_pptx.py
+
 # Локальні override-конфіги (не комітимо)
 *.local.yml
 *.local.yaml
@@ -90,8 +93,19 @@ metrics_snapshot.json
 load_test_results.csv
 results/
 experiments/out/
+# Якщо OUT_DIR/experiments CSV спрямовані в каталог experiments/ (не лише infra/local/out)
+experiments/experiment_runs/
+experiments/experiments.csv
 
 # Terraform / IaC (future-proof)
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# --- Політика репозиторію: у Git лише код (джерела, deploy, скрипти, конфіги) + кореневий README.md ---
+docs/
+presentation/
+
+# Усі Markdown окрім ./README.md (мануали, записка, презентація як текст — лише локально)
+*.md
+!/README.md

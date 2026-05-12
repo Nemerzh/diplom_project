@@ -41,25 +41,91 @@ def _effective_multiplier(cfg: SimConfig, meter_id: int) -> float:
 
 
 def _electricity_range(hour: int, meter_role: str, zone_name: str) -> tuple[float, float]:
+    """Діапазони кВт·год за інтервал для electricity; підтримка українських та англійських ключових слів у ролі/зоні."""
     is_day = 7 <= hour < 22
-    mr = meter_role.lower()
-    zn = zone_name.lower()
-    if "main" in mr or "main" in zn:
+    mr = (meter_role or "").lower()
+    zn = (zone_name or "").lower()
+    b = f"{mr} {zn}"
+
+    def main_tier() -> tuple[float, float]:
         return (70.0, 150.0) if is_day else (35.0, 90.0)
-    if "lighting" in mr or "light" in mr or "light" in zn:
+
+    def light_tier() -> tuple[float, float]:
         return (3.0, 14.0) if is_day else (6.0, 24.0)
-    if "hvac" in mr or "climate" in mr or "climate" in zn:
+
+    def hvac_tier() -> tuple[float, float]:
         return (18.0, 55.0) if is_day else (10.0, 28.0)
-    if (
-        "weld" in mr
-        or "weld" in zn
-        or "workshop" in mr
-        or "workshop" in zn
-        or "production" in mr
-        or "production" in zn
-    ):
+
+    def heavy_tier() -> tuple[float, float]:
         return (100.0, 200.0) if is_day else (45.0, 120.0)
-    return (12.0, 42.0) if is_day else (6.0, 22.0)
+
+    def default_tier() -> tuple[float, float]:
+        return (12.0, 42.0) if is_day else (6.0, 22.0)
+
+    # Головний облік (і старі ключі main)
+    if (
+        "головн" in b
+        or ("загальн" in b and "облік" in b)
+        or "main" in mr
+        or "main" in zn
+    ):
+        return main_tier()
+    # Освітлення
+    if any(
+        k in b
+        for k in (
+            "освітл",
+            "світло",
+            "ліхтар",
+            "світлодіод",
+            "lighting",
+            "light",
+        )
+    ):
+        return light_tier()
+    # Вентиляція, клімат, кондиціювання
+    if any(
+        k in b
+        for k in (
+            "вентил",
+            "клімат",
+            "кондиці",
+            "аспіра",
+            "теплов",
+            "опалюв",
+            "hvac",
+            "climate",
+        )
+    ):
+        return hvac_tier()
+    # Виробничі навантаження, цех, прокат, прес, зварка, лінії
+    if any(
+        k in b
+        for k in (
+            "weld",
+            "workshop",
+            "production",
+            "звар",
+            "цех",
+            "вироб",
+            "прес",
+            "прокат",
+            "екструз",
+            "гранул",
+            "електродвиг",
+            "навантаж",
+            "лінія",
+            "стан",
+            "кран",
+            "ремонт",
+            "лаборат",
+            "вимір",
+            "компресор",
+            "насос",
+        )
+    ):
+        return heavy_tier()
+    return default_tier()
 
 
 def _base_range_for_meter(meter: dict[str, Any], ts: datetime) -> tuple[float, float]:

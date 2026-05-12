@@ -29,7 +29,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      backend-migrate:
+      compose-seed:
         condition: service_completed_successfully
     ports:
       - "8000:8000"
@@ -48,6 +48,24 @@ services:
       postgres:
         condition: service_healthy
     command: [ "alembic", "upgrade", "head" ]
+    restart: "no"
+
+  # Після міграцій: скид бізнес-даних і демо-мережа. Пропуск лише якщо вже є ПС KPP-PS-110; інакше — заливає (у т.ч. замість «чужих» підстанцій).
+  # Примусово все стерти й залити знову: COMPOSE_TOPOLOGY_RESET=1
+  compose-seed:
+    build:
+      context: ../../services/backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://energy:energy@postgres:5432/energy
+      COMPOSE_TOPOLOGY_RESET: ${COMPOSE_TOPOLOGY_RESET:-0}
+      TZ: Europe/Kyiv
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend-migrate:
+        condition: service_completed_successfully
+    # `-m` ставить у sys.path корінь проєкту (/app), тож `import app` працює без PYTHONPATH.
+    command: [ "python", "-m", "scripts.compose_seed_network" ]
     restart: "no"
 
   frontend:
@@ -95,7 +113,9 @@ services:
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /:/host:ro,rslave
+      # Windows Docker Desktop: ,rslave на / часто дає «not a shared or slave mount» — лише :ro.
+      # На Linux можно повернути ,rslave якщо потрібне коректне rootfs для scrape.
+      - /:/host:ro
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
@@ -108,7 +128,11 @@ services:
       TZ: Europe/Kyiv
     privileged: true
     volumes:
-      - /:/rootfs:ro
+      # Long bind без rslave propagation — сумісність з Docker Desktop (Win/Mac).
+      - type: bind
+        source: /
+        target: /rootfs
+        read_only: true
       - /var/run:/var/run:rw
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro

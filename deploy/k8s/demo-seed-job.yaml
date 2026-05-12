@@ -1,0 +1,53 @@
+# Одноразовий Job: та сама демо-топологія, що в Docker Compose (scripts.compose_seed_network).
+# Запускати після міграцій, коли Postgres уже Ready (напр. make kind-demo-seed).
+#
+# Примусово перезалити дані: у Job змінити COMPOSE_TOPOLOGY_RESET на "1" або:
+#   kubectl apply -f deploy/k8s/demo-seed-job.yaml --dry-run=client -o yaml | sed ... | kubectl apply -f -
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: demo-network-seed
+  namespace: energy
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 2
+  template:
+    metadata:
+      labels: { app: demo-network-seed }
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: seed
+          image: energy-backend:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          command: ["python", "-m", "scripts.compose_seed_network"]
+          env:
+            - name: DATABASE_URL
+              value: postgresql+psycopg2://energy:energy@postgres:5432/energy
+            - name: TZ
+              value: Europe/Kyiv
+            # readOnlyRootFilesystem: запис лише в /tmp
+            - name: HOME
+              value: /tmp
+            - name: XDG_CACHE_HOME
+              value: /tmp/cache
+            # 0 — як у Compose: заливає, якщо немає ПС KPP-PS-110; 1 — повний TRUNCATE + сид
+            - name: COMPOSE_TOPOLOGY_RESET
+              value: "0"
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { medium: Memory, sizeLimit: 64Mi }

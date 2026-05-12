@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 NODES=("node-1" "node-2" "node-3")
 CPUS="${VM_CPUS:-1}"
-MEMORY="${VM_MEMORY:-1500M}"
+MEMORY="${VM_MEMORY:-1G}"
 DISK="${VM_DISK:-8G}"
 # Не використовуйте лише "22.04" — Multipass може взяти Ubuntu Core замість Server.
 # Див. multipass find. Для 24.04 LTS: VM_IMAGE=noble

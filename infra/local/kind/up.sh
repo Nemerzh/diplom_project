@@ -82,6 +82,11 @@ run_migrate_job
 
 maybe_restore_postgres
 
+if [ "${KIND_DEMO_SEED:-0}" = "1" ]; then
+  echo "KIND_DEMO_SEED=1 — демо-топологія через Job demo-network-seed (як у Docker Compose)..."
+  bash "$ROOT/infra/local/kind/apply-demo-seed.sh"
+fi
+
 echo "Patching Services to NodePort (kind port mapping)..."
 kubectl --context "$CTX" patch svc backend -n energy --type=merge -p \
   '{"spec":{"type":"NodePort","ports":[{"port":8000,"targetPort":8000,"nodePort":30080}]}}'
@@ -91,6 +96,30 @@ kubectl --context "$CTX" patch svc frontend -n energy --type=merge -p \
 kubectl --context "$CTX" scale deployment/backend -n energy --replicas=2
 kubectl --context "$CTX" rollout status deployment/backend -n energy --timeout=180s
 kubectl --context "$CTX" rollout status deployment/frontend -n energy --timeout=180s
+
+if [ "${KIND_DISABLE_HPA:-0}" != "1" ]; then
+  echo "Installing metrics-server (kind: with --kubelet-insecure-tls)..."
+  # У kind kubelet видає self-signed серти → metrics-server без --kubelet-insecure-tls
+  # не зможе скрейпити /metrics/resource і HPA отримуватиме <unknown> CPU.
+  kubectl --context "$CTX" apply -f \
+    https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+  kubectl --context "$CTX" patch deployment metrics-server -n kube-system --type=json -p='[
+    {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}
+  ]'
+  kubectl --context "$CTX" rollout status deployment/metrics-server -n kube-system --timeout=180s
+
+  echo "Waiting for metrics-server API to serve pod metrics..."
+  for i in $(seq 1 30); do
+    if kubectl --context "$CTX" top pod -n energy >/dev/null 2>&1; then
+      echo "metrics-server: ok"
+      break
+    fi
+    sleep 2
+  done
+
+  echo "Applying HPA for backend (CPU 60%, 2-8 replicas)..."
+  kubectl --context "$CTX" apply -f "$ROOT/deploy/k8s/hpa.yaml"
+fi
 
 echo "Simulator: ConfigMap зі сценарію + Deployment..."
 kubectl --context "$CTX" create configmap simulator-scenario -n energy \
@@ -126,4 +155,7 @@ echo "Frontend:   http://localhost:8081"
 echo "Prometheus: http://localhost:9090"
 echo "Grafana:    http://localhost:3000  (admin/admin)"
 echo "Ingress energy.local ігнорується без ingress-controller; використовуйте порти вище."
+if [ "${KIND_DISABLE_HPA:-0}" != "1" ]; then
+  echo "HPA:        kubectl get hpa -n energy   (демо: experiments/hpa_load.sh --platform=kind)"
+fi
 [ -f "$BACKUP_FILE" ] && echo "Бекап: $BACKUP_FILE ($(wc -c <"$BACKUP_FILE") bytes)" || echo "Бекап: ще не створено (зробить kind-down)"

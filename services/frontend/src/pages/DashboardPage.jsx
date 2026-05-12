@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { getDashboard } from "../api";
+import { getDashboard, getEnterprises, getReportsSummary } from "../api";
 import { FieldLabel, styles, Toasts } from "../ui.jsx";
 import { formatDateTime, formatTime } from "../utils/datetime.js";
 
@@ -14,8 +14,17 @@ function fmtKwh(n) {
   return `${x.toLocaleString("uk-UA", { maximumFractionDigits: 0 })} кВт·год`;
 }
 
+function fmtPct(v) {
+  if (v == null || Number.isNaN(Number(v))) return "—";
+  return `${Number(v).toFixed(1)} %`;
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState({ sites: [], meters: [], readings: [], alerts: [], daily: [] });
+  const [enterprises, setEnterprises] = useState([]);
+  const [summaryDays, setSummaryDays] = useState(30);
+  const [summaryEnterprise, setSummaryEnterprise] = useState("");
+  const [enterpriseSummary, setEnterpriseSummary] = useState(null);
   const [points, setPoints] = useState(48);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,8 +43,21 @@ export default function DashboardPage() {
       try {
         setIsLoading(true);
         const t0 = typeof performance !== "undefined" ? performance.now() : 0;
-        const payload = await getDashboard();
-        setData(payload);
+        const dash = await getDashboard();
+        setData(dash);
+
+        const entOpt = summaryEnterprise === "" ? undefined : Number(summaryEnterprise);
+        try {
+          setEnterpriseSummary(await getReportsSummary(summaryDays, entOpt));
+        } catch {
+          setEnterpriseSummary(null);
+        }
+        try {
+          setEnterprises(await getEnterprises());
+        } catch {
+          /* довідник підприємств — не блокує решту дашборду */
+        }
+
         setLastRefresh(new Date());
         if (t0) setLatencyMs(Math.round(performance.now() - t0));
         if (showToast) pushToast("Дані оновлено.", "success");
@@ -45,7 +67,7 @@ export default function DashboardPage() {
         setIsLoading(false);
       }
     },
-    []
+    [summaryDays, summaryEnterprise]
   );
 
   useEffect(() => {
@@ -173,10 +195,74 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div style={{ ...styles.card, borderLeft: "4px solid #0ea5e9", maxWidth: 480 }}>
-        <div style={styles.muted}>Сума по денних агрегатах</div>
-        <div style={{ fontSize: 20, fontWeight: 700 }}>{fmtKwh(dailySumKwh)}</div>
-        <div style={{ ...styles.muted, fontSize: 12, marginTop: 4 }}>усі доступні рядки daily</div>
+      <div style={{ ...styles.card, borderLeft: "4px solid #16a34a" }}>
+        <h3 style={{ ...styles.cardTitle, marginTop: 0 }}>Облік споживання ел. енергії (кВт·год за період)</h3>
+        <p style={{ ...styles.muted, marginTop: 0 }}>
+          Сума інтервалів з усіх лічильників об&apos;єктів обраного підприємства (або сукупно по платформі), з денних агрегатів як у фінзвіті —
+          окремо від потужності кВт на топології та від «останні покази» нижче (там один інтервал знімання).
+        </p>
+        <div style={{ ...styles.toolbar, flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+          <div>
+            <FieldLabel text="Підприємство" />
+            <select
+              style={{ ...styles.select, maxWidth: 280 }}
+              value={summaryEnterprise}
+              onChange={(e) => setSummaryEnterprise(e.target.value)}
+            >
+              <option value="">Усі підприємства разом</option>
+              {enterprises.map((e) => (
+                <option key={e.id} value={String(e.id)}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <FieldLabel text="Період від сьогодні назад" />
+            <select
+              style={{ ...styles.select, width: 120 }}
+              value={summaryDays}
+              onChange={(e) => setSummaryDays(Number(e.target.value))}
+            >
+              <option value={7}>7 діб</option>
+              <option value={30}>30 діб</option>
+              <option value={90}>90 діб</option>
+              <option value={365}>365 діб</option>
+            </select>
+          </div>
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 700, marginTop: 14 }}>
+          {enterpriseSummary?.kpi
+            ? `${Number(enterpriseSummary.kpi.total_kwh || 0).toLocaleString("uk-UA", {
+                maximumFractionDigits: 0
+              })} кВт·год`
+            : "—"}
+        </div>
+        {enterpriseSummary?.period?.from_date && enterpriseSummary?.period?.to_date ? (
+          <p style={{ ...styles.muted, marginBottom: 6 }}>
+            Інтервал: {formatDateTime(enterpriseSummary.period.from_date)} — {formatDateTime(enterpriseSummary.period.to_date)}{" "}
+            · активних об&apos;єктів / лічильників за період: {enterpriseSummary.kpi?.active_sites ?? "—"} /{" "}
+            {enterpriseSummary.kpi?.active_meters ?? "—"}
+          </p>
+        ) : null}
+        {enterpriseSummary?.kpi ? (
+          <p style={{ ...styles.muted, marginTop: 0 }}>
+            Середньодобово: {Number(enterpriseSummary.kpi.avg_daily_kwh || 0).toLocaleString("uk-UA", {
+              maximumFractionDigits: 2
+            })}{" "}
+            кВт·год · зміна до попереднього такого самого періоду: {fmtPct(enterpriseSummary.kpi.trend_pct_vs_prev_period)}
+          </p>
+        ) : (
+          <p style={styles.muted}>Не вдалося завантажити підсумок — перевірте /reports/summary або агрегати.</p>
+        )}
+      </div>
+
+      <div style={{ ...styles.card, borderLeft: "4px solid #0ea5e9", maxWidth: 520 }}>
+        <div style={styles.muted}>Сирий підсумок «як завантажено таблицю daily»</div>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>{fmtKwh(dailySumKwh)}</div>
+        <div style={{ ...styles.muted, fontSize: 12, marginTop: 4 }}>
+          Сума всіх рядків з відповіді GET /reports/daily без обрізання по днях — зручна для огляду, не формулюйте як офіційне споживання підприємства без фільтра періоду.
+        </div>
       </div>
 
       <div style={{ ...styles.card, minHeight: 340 }}>

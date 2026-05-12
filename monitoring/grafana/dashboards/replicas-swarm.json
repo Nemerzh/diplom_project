@@ -1,0 +1,57 @@
+{
+  "id": null,
+  "title": "Replicas: Docker Swarm",
+  "description": "Метрики **swarm-tasks-exporter**. Лише сервіси **`${stack}_` + (backend|frontend|simulator|postgres)** — як у мітці `service` (напр. energy_backend).",
+  "schemaVersion": 39,
+  "version": 13,
+  "tags": ["swarm", "experiments", "diploma"],
+  "panels": [
+    {
+      "type": "row",
+      "title": "Swarm API — репліки",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Running (по сервісу)",
+      "description": "Лише backend, frontend, simulator, postgres.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "expr": "max by (stack, service) (swarm_service_replicas_state{stack=~\"$stack\", state=\"running\", service=~\"^${stack}_(backend|frontend|simulator|postgres)$\"})",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Таски: running і failed",
+      "description": "Лише backend, frontend, simulator, postgres; стани running та failed.",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 9 },
+      "targets": [
+        {
+          "expr": "max by (stack, service, state) (swarm_service_replicas_state{stack=~\"$stack\", state=~\"running|failed\", service=~\"^${stack}_(backend|frontend|simulator|postgres)$\"})",
+          "legendFormat": "{{service}} — {{state}}"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "stack",
+        "label": "Stack (docker stack deploy)",
+        "type": "constant",
+        "query": "energy",
+        "current": { "selected": true, "text": "energy", "value": "energy" },
+        "options": [{ "selected": true, "text": "energy", "value": "energy" }],
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "time": { "from": "now-30m", "to": "now" },
+  "timezone": "Europe/Kyiv",
+  "refresh": "5s"
+}

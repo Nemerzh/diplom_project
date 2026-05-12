@@ -38,7 +38,7 @@ spec:
             - { name: SIM_AUTOSTART,     value: "1" }
             - { name: SIM_CONFIG_PATH,   value: "/app/config/scenario.yaml" }
             - { name: LOG_LEVEL,         value: "INFO" }
-            - { name: METER_IDS,         value: "1,2,3" }
+            # METER_IDS не задаємо — беремо всі active лічильники з GET /meters (див. app.py).
             - { name: INTERVAL_SECONDS,  value: "1" }
             - { name: SIM_PROFILE,       value: "normal" }
             - { name: SIM_MULTIPLIER,    value: "1" }

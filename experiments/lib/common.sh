@@ -12,6 +12,10 @@ K8S_NAMESPACE="${K8S_NAMESPACE:-energy}"
 
 OUT_DIR="${OUT_DIR:-$ROOT_DIR/infra/local/out}"
 CSV_FILE="${EXPERIMENTS_CSV:-$OUT_DIR/experiments.csv}"
+# Окремий файл на кожен прогон (зрозуміла назва: час + платформа + сценарій + сервіс + from/to).
+EXPERIMENTS_RUN_DIR="${EXPERIMENTS_RUN_DIR:-$OUT_DIR/experiment_runs}"
+# 1 = також додавати рядок у загальний CSV_FILE (як раніше).
+EXPERIMENTS_WRITE_MASTER="${EXPERIMENTS_WRITE_MASTER:-1}"
 POLL_INTERVAL_S="${POLL_INTERVAL_S:-0.2}"
 DEFAULT_TIMEOUT_S="${EXPERIMENT_TIMEOUT_S:-300}"
 
@@ -46,12 +50,40 @@ csv_init() {
   fi
 }
 
+# ───────────────────────── CSV: агрегат + окремий файл на прогон ───────────────
+# Після csv_append експортується LAST_EXPERIMENT_FILE — шлях до щойно записаного файлу.
+
+_exp_slug() {
+  printf '%s' "$1" | tr -c 'A-Za-z0-9._+-' '_' | sed 's/__*/_/g; s/^_//; s/_$//'
+}
+
 # csv_append <platform> <scenario> <service> <from_n> <to_n> <t_request_ms> <t_first_ready_ms> <t_all_ready_ms> <t_done_ms> <notes>
 csv_append() {
-  csv_init
   local ts; ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
-    "$ts" "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}" >> "$CSV_FILE"
+  local line
+  line="$(printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' \
+    "$ts" "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}")"
+
+  if [ "${EXPERIMENTS_WRITE_MASTER:-1}" = "1" ]; then
+    csv_init
+    printf '%s\n' "$line" >> "$CSV_FILE"
+    log "Агрегат CSV: $CSV_FILE"
+  fi
+
+  mkdir -p "$EXPERIMENTS_RUN_DIR"
+  local fn_ts slug_p slug_s slug_svc out
+  fn_ts="$(date -u +%Y%m%dT%H%M%SZ)"
+  slug_p="$(_exp_slug "$1")"
+  slug_s="$(_exp_slug "$2")"
+  slug_svc="$(_exp_slug "$3")"
+  out="${EXPERIMENTS_RUN_DIR}/${fn_ts}_${slug_p}__${slug_s}__${slug_svc}__from${4}_to${5}.csv"
+  if [ -e "$out" ]; then
+    out="${EXPERIMENTS_RUN_DIR}/${fn_ts}_${slug_p}__${slug_s}__${slug_svc}__from${4}_to${5}__${RANDOM}.csv"
+  fi
+  printf '%s\n%s\n' "$CSV_HEADER" "$line" > "$out"
+  LAST_EXPERIMENT_FILE="$out"
+  export LAST_EXPERIMENT_FILE
+  log "Окремий файл: $out"
 }
 
 # ───────────────────────── Парсер аргументів ───────────────────────────────────

@@ -30,4 +30,15 @@ log ">>> 3/4: failover (kill 1)"
 log ">>> 4/4: rolling update"
 "$HERE/rolling_update.sh" --platform="$PLATFORM" --service="$SERVICE"
 
-log "Готово. Результати в $CSV_FILE"
+# HPA-сценарій є вбудованим лише у Kubernetes — для Swarm пропускаємо (це частина порівняння у дипломі).
+if [ "$PLATFORM" = "kind" ] && [ "${RUN_HPA:-1}" = "1" ]; then
+  log ">>> 5/5: HPA load (kind only)"
+  "$HERE/hpa_load.sh" --platform=kind --service="$SERVICE" \
+    --concurrency="${HPA_CONCURRENCY:-20}" \
+    --duration="${HPA_DURATION:-120}" \
+    --url="${HPA_URL:-http://localhost:8000/sites}" \
+    --cooldown="${HPA_COOLDOWN:-600}" \
+    --quiet-simulator="${HPA_QUIET_SIM:-1}"
+fi
+
+log "Готово. Агрегат: $CSV_FILE | окремі прогони: $EXPERIMENTS_RUN_DIR/"
